@@ -10,6 +10,15 @@
 		83AAA001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA011 /* AppDelegate.swift */; };
 		83AAA002 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA012 /* MenuBarController.swift */; };
 		83AAA003 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA013 /* Settings.swift */; };
+		83AAA004 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA017 /* main.swift */; };
+		83AAA005 /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA018 /* Utils.swift */; };
+		83AAA006 /* HotkeyPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA019 /* HotkeyPanel.swift */; };
+		83AAA007 /* ConfirmPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA01A /* ConfirmPanel.swift */; };
+		83AAA008 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA01B /* AudioRecorder.swift */; };
+		83AAA009 /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA01C /* HotkeyManager.swift */; };
+		83AAA00A /* TextInjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA01D /* TextInjector.swift */; };
+		83AAA00B /* TranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA01E /* TranscriptionEngine.swift */; };
+		83AAA00C /* OnboardingPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA01F /* OnboardingPanel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,6 +28,15 @@
 		83AAA014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		83AAA015 /* Sten.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Sten.entitlements; sourceTree = "<group>"; };
 		83AAA016 /* Sten.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sten.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		83AAA017 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		83AAA018 /* Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
+		83AAA019 /* HotkeyPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyPanel.swift; sourceTree = "<group>"; };
+		83AAA01A /* ConfirmPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmPanel.swift; sourceTree = "<group>"; };
+		83AAA01B /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
+		83AAA01C /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
+		83AAA01D /* TextInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextInjector.swift; sourceTree = "<group>"; };
+		83AAA01E /* TranscriptionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionEngine.swift; sourceTree = "<group>"; };
+		83AAA01F /* OnboardingPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingPanel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -43,9 +61,18 @@
 		83AAA031 /* Sten */ = {
 			isa = PBXGroup;
 			children = (
+				83AAA017 /* main.swift */,
 				83AAA011 /* AppDelegate.swift */,
 				83AAA012 /* MenuBarController.swift */,
 				83AAA013 /* Settings.swift */,
+				83AAA018 /* Utils.swift */,
+				83AAA019 /* HotkeyPanel.swift */,
+				83AAA01A /* ConfirmPanel.swift */,
+				83AAA01B /* AudioRecorder.swift */,
+				83AAA01C /* HotkeyManager.swift */,
+				83AAA01D /* TextInjector.swift */,
+				83AAA01E /* TranscriptionEngine.swift */,
+				83AAA01F /* OnboardingPanel.swift */,
 				83AAA014 /* Info.plist */,
 				83AAA015 /* Sten.entitlements */,
 			);
@@ -128,9 +155,18 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				83AAA004 /* main.swift in Sources */,
 				83AAA001 /* AppDelegate.swift in Sources */,
 				83AAA002 /* MenuBarController.swift in Sources */,
 				83AAA003 /* Settings.swift in Sources */,
+				83AAA005 /* Utils.swift in Sources */,
+				83AAA006 /* HotkeyPanel.swift in Sources */,
+				83AAA007 /* ConfirmPanel.swift in Sources */,
+				83AAA008 /* AudioRecorder.swift in Sources */,
+				83AAA009 /* HotkeyManager.swift in Sources */,
+				83AAA00A /* TextInjector.swift in Sources */,
+				83AAA00B /* TranscriptionEngine.swift in Sources */,
+				83AAA00C /* OnboardingPanel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
