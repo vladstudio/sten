@@ -1,6 +1,15 @@
-app/build
+# Build artifacts
+.build/
+app/build/
 app/Sten.app
-app/lib/whisper.cpp
+
+# Xcode
+*.xcuserstate
+xcuserdata/
+
+# macOS
 .DS_Store
-models
-.build
+
+# Dependencies
+app/lib/whisper.cpp
+models/

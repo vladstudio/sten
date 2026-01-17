@@ -32,15 +32,6 @@ This builds the app and installs it to `/Applications/Sten.app`.
 
 Place shell scripts in `~/.sten/transforms/` to process transcribed text before injection. Enable them from the menu bar.
 
-## Menu Bar Icons
-
-| Icon | State |
-|------|-------|
-| Idle | Ready to record |
-| Listening | Recording audio |
-| Thinking | Transcribing |
-| Warning | Missing permissions |
-
 ## Building Manually
 
 ```bash
