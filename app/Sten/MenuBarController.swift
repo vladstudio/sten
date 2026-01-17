@@ -12,6 +12,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     var onTranscribe: (() -> Void)?
     var onCancel: (() -> Void)?
     private var hotkeyPanel: HotkeyPanel?
+    private var confirmPanel: ConfirmPanel?
     private var permissionsMode = false
 
     override init() {
@@ -154,6 +155,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let about = NSMenuItem(title: "About Sten", action: #selector(openAbout), keyEquivalent: "")
         about.target = self
         menu.addItem(about)
+        if settings.onboardingDone, let size = modelSizeMB() {
+            let del = NSMenuItem(title: "Delete model (\(size) MB) and quit", action: #selector(deleteModelAction), keyEquivalent: "")
+            del.target = self
+            menu.addItem(del)
+        }
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         menu.delegate = self
         statusItem.menu = menu
@@ -164,6 +170,29 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func cancelAction() { onCancel?() }
     @objc private func toggleLogin() { settings.startOnLogin.toggle(); updateMenu() }
     @objc private func openAbout() { if let url = URL(string: "https://sten.vlad.studio") { NSWorkspace.shared.open(url) } }
+
+    private func modelDirectory() -> URL? {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("FluidAudio/Models")
+    }
+
+    private func modelSizeMB() -> Int? {
+        guard let dir = modelDirectory(), FileManager.default.fileExists(atPath: dir.path) else { return nil }
+        guard let enumerator = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: [.fileSizeKey]) else { return nil }
+        var total: Int64 = 0
+        for case let url as URL in enumerator { total += (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0 }
+        return total > 0 ? Int(total / 1_000_000) : nil
+    }
+
+    @objc private func deleteModelAction() {
+        confirmPanel = ConfirmPanel(message: "Delete the speech model and quit?\nYou can re-download it later.", confirmTitle: "Delete and Quit")
+        confirmPanel?.onConfirm = { [weak self] in
+            if let dir = self?.modelDirectory() { try? FileManager.default.removeItem(at: dir) }
+            Settings.shared.onboardingDone = false
+            NSApp.terminate(nil)
+        }
+        confirmPanel?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
 
     @objc private func openHotkeyPanel() { showHotkeyPanel(below: nil) }
 
