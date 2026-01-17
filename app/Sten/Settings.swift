@@ -17,7 +17,7 @@ final class Settings {
 
     var hotkeyModifiers: UInt64 {
         get { defaults.bool(forKey: "hkSet") ? UInt64(clamping: defaults.integer(forKey: "hkMods")) : 0x180000 }
-        set { defaults.set(Int(newValue), forKey: "hkMods") }
+        set { defaults.set(Int(newValue), forKey: "hkMods"); defaults.set(true, forKey: "hkSet") }
     }
 
     var onboardingDone: Bool {

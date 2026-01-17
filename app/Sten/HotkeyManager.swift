@@ -8,7 +8,7 @@ final class HotkeyManager {
     private var pressTime: Date?
     private var keyCode: UInt16 = 49
     private var modifiers: CGEventFlags = []
-    private static let modifierKeys: Set<UInt16> = [54, 55, 56, 57, 60, 61, 62, 63] // cmd/shift/caps/fn
+    private static let modifierKeys: Set<UInt16> = [54, 55, 56, 57, 58, 59, 60, 61, 62, 63] // cmd/shift/opt/ctrl/caps/fn
 
     var onPress: (() -> Void)?
 

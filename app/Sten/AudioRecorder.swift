@@ -24,7 +24,7 @@ final class AudioRecorder {
             self.lock.unlock()
             DispatchQueue.main.async { self.onLevel?(sqrt(vDSP.meanSquare(UnsafeBufferPointer(start: data, count: count)))) }
         }
-        try engine.start()
+        do { try engine.start() } catch { input.removeTap(onBus: 0); throw error }
     }
 
     func stop() -> [Float] {

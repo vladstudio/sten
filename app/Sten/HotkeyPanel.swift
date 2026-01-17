@@ -1,5 +1,4 @@
 import AppKit
-import Carbon
 
 final class HotkeyPanel: NSPanel {
     private let label = NSTextField(labelWithString: "")
@@ -63,14 +62,6 @@ final class HotkeyPanel: NSPanel {
         saveHotkey(UInt16(sender.tag), 0)
     }
 
-    func positionBelow(_ rect: NSRect) {
-        var pt = NSPoint(x: rect.midX - frame.width / 2, y: rect.minY - 4)
-        if let screen = NSScreen.main {
-            pt.x = max(screen.visibleFrame.minX, min(pt.x, screen.visibleFrame.maxX - frame.width))
-        }
-        setFrameTopLeftPoint(pt)
-    }
-
     override var canBecomeKey: Bool { true }
     override func close() { super.close(); onClose?() }
 
@@ -112,17 +103,6 @@ final class HotkeyPanel: NSPanel {
             123: "←", 124: "→", 125: "↓", 126: "↑", 122: "F1", 120: "F2", 99: "F3", 118: "F4", 96: "F5",
             97: "F6", 98: "F7", 100: "F8", 101: "F9", 109: "F10", 103: "F11", 111: "F12",
             57: "⇪ Caps Lock", 54: "⌘ Right Command", 60: "⇧ Right Shift"]
-        if let name = special[code] { return name }
-        let source = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
-        guard let layoutData = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else { return "?" }
-        let layout = unsafeBitCast(layoutData, to: CFData.self) as Data
-        var deadKeyState: UInt32 = 0
-        var chars = [UniChar](repeating: 0, count: 4)
-        var len: Int = 0
-        layout.withUnsafeBytes { ptr in
-            let layoutPtr = ptr.bindMemory(to: UCKeyboardLayout.self).baseAddress!
-            UCKeyTranslate(layoutPtr, code, UInt16(kUCKeyActionDown), 0, UInt32(LMGetKbdType()), UInt32(kUCKeyTranslateNoDeadKeysBit), &deadKeyState, 4, &len, &chars)
-        }
-        return len > 0 ? String(utf16CodeUnits: chars, count: len).uppercased() : "?"
+        return special[code] ?? translateKeyCode(code)?.uppercased() ?? "?"
     }
 }

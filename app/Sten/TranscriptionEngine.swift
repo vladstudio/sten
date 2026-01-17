@@ -8,12 +8,11 @@ final class TranscriptionEngine {
     func load() async -> Bool {
         do {
             models = try await AsrModels.downloadAndLoad(version: .v3)
+            guard let m = models else { return false }
             manager = AsrManager(config: .default)
-            try await manager?.initialize(models: models!)
+            try await manager?.initialize(models: m)
             return true
-        } catch {
-            return false
-        }
+        } catch { return false }
     }
 
     func transcribe(_ audio: [Float]) async -> String? {

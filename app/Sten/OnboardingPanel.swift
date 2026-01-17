@@ -111,14 +111,6 @@ final class OnboardingPanel: NSPanel {
         RunLoop.main.add(checkTimer!, forMode: .common)
     }
 
-    func positionBelow(_ rect: NSRect) {
-        var pt = NSPoint(x: rect.midX - frame.width / 2, y: rect.minY - 4)
-        if let screen = NSScreen.main {
-            pt.x = max(screen.visibleFrame.minX, min(pt.x, screen.visibleFrame.maxX - frame.width))
-        }
-        setFrameTopLeftPoint(pt)
-    }
-
     override var canBecomeKey: Bool { true }
     override func close() { checkTimer?.invalidate(); super.close() }
 }

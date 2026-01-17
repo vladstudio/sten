@@ -1,5 +1,4 @@
 import AppKit
-import Carbon
 
 enum AppState { case idle, listening, transcribing, loading }
 
@@ -106,25 +105,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     private func keyChar(_ code: UInt16) -> String? {
-        let special: [UInt16: String] = [
-            49: " ", 36: "\r", 48: "\t", 51: "\u{8}", 53: "\u{1B}",
-            123: String(UnicodeScalar(NSLeftArrowFunctionKey)!),
-            124: String(UnicodeScalar(NSRightArrowFunctionKey)!),
-            125: String(UnicodeScalar(NSDownArrowFunctionKey)!),
-            126: String(UnicodeScalar(NSUpArrowFunctionKey)!)
-        ]
-        if let s = special[code] { return s }
-        let source = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
-        guard let layoutData = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else { return nil }
-        let layout = unsafeBitCast(layoutData, to: CFData.self) as Data
-        var deadKeyState: UInt32 = 0
-        var chars = [UniChar](repeating: 0, count: 4)
-        var len: Int = 0
-        layout.withUnsafeBytes { ptr in
-            let layoutPtr = ptr.bindMemory(to: UCKeyboardLayout.self).baseAddress!
-            UCKeyTranslate(layoutPtr, code, UInt16(kUCKeyActionDown), 0, UInt32(LMGetKbdType()), UInt32(kUCKeyTranslateNoDeadKeysBit), &deadKeyState, 4, &len, &chars)
-        }
-        return len > 0 ? String(utf16CodeUnits: chars, count: len).lowercased() : nil
+        let special: [UInt16: String] = [49: " ", 36: "\r", 48: "\t", 51: "\u{8}", 53: "\u{1B}",
+            123: String(UnicodeScalar(NSLeftArrowFunctionKey)!), 124: String(UnicodeScalar(NSRightArrowFunctionKey)!),
+            125: String(UnicodeScalar(NSDownArrowFunctionKey)!), 126: String(UnicodeScalar(NSUpArrowFunctionKey)!)]
+        return special[code] ?? translateKeyCode(code)?.lowercased()
     }
 
     func updateMenu() {

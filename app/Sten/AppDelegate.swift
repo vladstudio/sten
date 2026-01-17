@@ -36,7 +36,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         onboarding?.onComplete = { [weak self] in self?.onboarding = nil; self?.checkPermissionsAndUpdateMenu() }
-        onboarding?.onChangeHotkey = { [weak self] in self?.menu.showHotkeyPanel(below: self?.onboarding) }
+        onboarding?.onChangeHotkey = { [weak self] in
+            Settings.shared.onboardingDone = true
+            self?.onboarding?.close()
+            self?.onboarding = nil
+            self?.checkPermissionsAndUpdateMenu()
+            self?.menu.showHotkeyPanel(below: nil)
+        }
         if let button = menu.statusButton, let w = button.window {
             onboarding?.positionBelow(w.convertToScreen(button.frame))
         }
