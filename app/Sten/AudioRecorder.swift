@@ -22,7 +22,8 @@ final class AudioRecorder {
             self.lock.lock()
             if self.buffer.count + count <= self.maxSamples { self.buffer.append(contentsOf: UnsafeBufferPointer(start: data, count: count)) }
             self.lock.unlock()
-            DispatchQueue.main.async { self.onLevel?(sqrt(vDSP.meanSquare(UnsafeBufferPointer(start: data, count: count)))) }
+            let rms = sqrt(vDSP.meanSquare(UnsafeBufferPointer(start: data, count: count)))
+            DispatchQueue.main.async { [weak self] in self?.onLevel?(rms) }
         }
         do { try engine.start() } catch { input.removeTap(onBus: 0); throw error }
     }

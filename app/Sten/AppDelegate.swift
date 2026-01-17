@@ -192,7 +192,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 stdin.fileHandleForWriting.write(result.data(using: .utf8) ?? Data())
                 stdin.fileHandleForWriting.closeFile()
                 proc.waitUntilExit()
-                if proc.terminationStatus == 0, let out = String(data: stdout.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8), !out.isEmpty {
+                let outData = stdout.fileHandleForReading.readDataToEndOfFile()
+                try? stdout.fileHandleForReading.close()
+                if proc.terminationStatus == 0, let out = String(data: outData, encoding: .utf8), !out.isEmpty {
                     result = out.trimmingCharacters(in: .newlines)
                 }
             } catch {}

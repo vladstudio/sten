@@ -12,6 +12,8 @@ final class HotkeyManager {
 
     var onPress: (() -> Void)?
 
+    deinit { stop() }
+
     func start() {
         stop()
         keyCode = Settings.shared.hotkeyCode
