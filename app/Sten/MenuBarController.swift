@@ -21,7 +21,17 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         updateMenu()
     }
 
-    func menuWillOpen(_ menu: NSMenu) { }
+    func menuWillOpen(_ menu: NSMenu) {
+        guard menu.title == "transforms" else { return }
+        let scripts = Set((try? FileManager.default.contentsOfDirectory(atPath: Self.transformsDir.path))?.filter { !$0.hasPrefix(".") } ?? [])
+        settings.enabledTransforms = settings.enabledTransforms.intersection(scripts)
+        menu.items.filter { $0.action == #selector(toggleTransform(_:)) }.forEach { menu.removeItem($0) }
+        for name in scripts.sorted() {
+            let mi = NSMenuItem(title: name, action: #selector(toggleTransform(_:)), keyEquivalent: "")
+            mi.target = self; mi.state = settings.enabledTransforms.contains(name) ? .on : .off
+            menu.insertItem(mi, at: menu.items.firstIndex { $0.isSeparatorItem } ?? 0)
+        }
+    }
 
     func showPermissionsRequired(mic: Bool, accessibility: Bool) {
         permissionsMode = true
@@ -177,15 +187,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     private func buildTransformsMenu() -> NSMenuItem {
         let item = NSMenuItem(title: "Text transforms", action: nil, keyEquivalent: "")
-        let sub = NSMenu()
-        let scripts = (try? FileManager.default.contentsOfDirectory(atPath: Self.transformsDir.path))?.sorted() ?? []
-        for name in scripts {
-            let mi = NSMenuItem(title: name, action: #selector(toggleTransform(_:)), keyEquivalent: "")
-            mi.target = self
-            mi.state = settings.enabledTransforms.contains(name) ? .on : .off
-            sub.addItem(mi)
-        }
-        if !scripts.isEmpty { sub.addItem(.separator()) }
+        let sub = NSMenu(title: "transforms")
+        sub.delegate = self
+        sub.addItem(.separator())
         let open = NSMenuItem(title: "Open transforms folder", action: #selector(openTransformsFolder), keyEquivalent: "")
         open.target = self
         sub.addItem(open)
