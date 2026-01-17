@@ -124,6 +124,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         case .idle:
             let listen = NSMenuItem(title: "Listen", action: #selector(listenAction), keyEquivalent: "")
             listen.target = self
+            listen.isEnabled = settings.onboardingDone
             configureListenHotkey(listen)
             menu.addItem(listen)
         case .listening:
@@ -185,10 +186,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func deleteModelAction() {
         confirmPanel = ConfirmPanel(message: "Delete the speech model and quit?\nYou can re-download it later.", confirmTitle: "Delete and Quit")
-        confirmPanel?.onConfirm = { [weak self] in
-            if let dir = self?.modelDirectory() { try? FileManager.default.removeItem(at: dir) }
+        confirmPanel?.onConfirm = {
             Settings.shared.onboardingDone = false
-            NSApp.terminate(nil)
+            (NSApp.delegate as? AppDelegate)?.deleteModelAndQuit()
         }
         confirmPanel?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

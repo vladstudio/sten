@@ -11,6 +11,7 @@ final class OnboardingPanel: NSPanel {
     private var checkTimer: Timer?
     var onComplete: (() -> Void)?
     var onChangeHotkey: (() -> Void)?
+    var onCancel: (() -> Void)?
     var loadModel: ((@escaping (Bool) -> Void) -> Void)?
 
     init() {
@@ -74,9 +75,12 @@ final class OnboardingPanel: NSPanel {
             label.stringValue = "Downloading speech recognition model...\nThis runs entirely on your device for privacy."
             button.title = "Downloading..."
             button.isEnabled = false
+            secondaryButton.title = "Cancel"
+            secondaryButton.isHidden = false
             loadModel? { [weak self] ok in
                 DispatchQueue.main.async {
                     self?.button.isEnabled = true
+                    self?.secondaryButton.isHidden = true
                     if ok { self?.step = .done }
                     else { self?.button.title = "Retry"; self?.label.stringValue = "Download failed. Check your connection." }
                 }
@@ -102,7 +106,9 @@ final class OnboardingPanel: NSPanel {
         }
     }
 
-    @objc private func secondaryAction() { onChangeHotkey?() }
+    @objc private func secondaryAction() {
+        if step == .model { onCancel?() } else { onChangeHotkey?() }
+    }
 
     private func startPolling(check: @escaping () -> Bool, then: @escaping () -> Void) {
         checkTimer = Timer(timeInterval: 0.5, repeats: true) { [weak self] t in

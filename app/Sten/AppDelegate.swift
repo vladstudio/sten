@@ -36,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         onboarding?.onComplete = { [weak self] in self?.onboarding = nil; self?.checkPermissionsAndUpdateMenu() }
+        onboarding?.onCancel = { [weak self] in self?.deleteModelAndQuit() }
         onboarding?.onChangeHotkey = { [weak self] in
             Settings.shared.onboardingDone = true
             self?.onboarding?.close()
@@ -174,5 +175,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         c.title = title
         c.body = body
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: c, trigger: nil))
+    }
+
+    func deleteModelAndQuit() {
+        if let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("FluidAudio/Models") {
+            try? FileManager.default.removeItem(at: dir)
+        }
+        NSApp.terminate(nil)
     }
 }
