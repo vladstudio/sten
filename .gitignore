@@ -2,5 +2,5 @@ app/build
 app/Sten.app
 app/lib/whisper.cpp
 .DS_Store
-models/output/cache/parakeet-ctc-1.1b.nemo
-models/output/cache/parakeet-tdt-1.1b.nemo
+models
+.build

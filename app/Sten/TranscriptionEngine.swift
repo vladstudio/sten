@@ -1,36 +1,34 @@
-import Foundation
-import CWhisper
+import FluidAudio
 
 final class TranscriptionEngine {
-    private var ctx: OpaquePointer?
-    var isReady: Bool { ctx != nil }
+    private var models: AsrModels?
+    private var manager: AsrManager?
+    var isReady: Bool { manager != nil }
 
-    func loadModel(_ path: URL) -> Bool {
-        unload()
-        var cparams = whisper_context_default_params()
-        cparams.use_gpu = true
-        ctx = whisper_init_from_file_with_params(path.path, cparams)
-        return ctx != nil
+    func load() async -> Bool {
+        do {
+            models = try await AsrModels.downloadAndLoad(version: .v3)
+            manager = AsrManager(config: .default)
+            try await manager?.initialize(models: models!)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    func transcribe(_ audio: [Float]) async -> String? {
+        guard let manager, !audio.isEmpty else { return nil }
+        do {
+            let result = try await manager.transcribe(audio)
+            let text = result.text.trimmingCharacters(in: .whitespaces)
+            return text.isEmpty ? nil : text
+        } catch {
+            return nil
+        }
     }
 
     func unload() {
-        if let ctx = self.ctx { whisper_free(ctx) }
-        ctx = nil
+        manager = nil
+        models = nil
     }
-
-    func transcribe(_ audio: [Float], language: String = "auto") -> String? {
-        guard let ctx = ctx, !audio.isEmpty else { return nil }
-        var params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY)
-        params.n_threads = 4
-        params.print_progress = false
-        params.print_timestamps = false
-        params.language = language == "auto" ? nil : (language as NSString).utf8String
-        let result = audio.withUnsafeBufferPointer { whisper_full(ctx, params, $0.baseAddress, Int32($0.count)) }
-        guard result == 0 else { return nil }
-        let n = whisper_full_n_segments(ctx)
-        let text = (0..<n).compactMap { whisper_full_get_segment_text(ctx, $0).map { String(cString: $0) } }.joined().trimmingCharacters(in: .whitespaces)
-        return text.contains("[BLANK_AUDIO]") ? nil : text
-    }
-
-    deinit { unload() }
 }
