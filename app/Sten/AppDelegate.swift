@@ -144,10 +144,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.state = .transcribing
         Task {
             let text = await engine.transcribe(audio)
+            let transformed = text.flatMap { t in t.isEmpty ? nil : applyTransforms(t) }
             await MainActor.run {
                 menu.state = .idle
                 scheduleIdleUnload()
-                if let text, !text.isEmpty { outputText(text) }
+                if let transformed { outputText(transformed) }
             }
         }
     }
@@ -168,6 +169,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         TextInjector.inject(text)
+    }
+
+    private func applyTransforms(_ text: String) -> String {
+        let dir = MenuBarController.transformsDir
+        let enabled = Settings.shared.enabledTransforms
+        guard !enabled.isEmpty else { return text }
+        let scripts = enabled.sorted().compactMap { name -> URL? in
+            let url = dir.appendingPathComponent(name)
+            return FileManager.default.isExecutableFile(atPath: url.path) ? url : nil
+        }
+        var result = text
+        for script in scripts {
+            let proc = Process()
+            proc.executableURL = script
+            let stdin = Pipe(), stdout = Pipe()
+            proc.standardInput = stdin
+            proc.standardOutput = stdout
+            proc.standardError = FileHandle.nullDevice
+            do {
+                try proc.run()
+                stdin.fileHandleForWriting.write(result.data(using: .utf8) ?? Data())
+                stdin.fileHandleForWriting.closeFile()
+                proc.waitUntilExit()
+                if proc.terminationStatus == 0, let out = String(data: stdout.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8), !out.isEmpty {
+                    result = out.trimmingCharacters(in: .newlines)
+                }
+            } catch {}
+        }
+        return result
     }
 
     private func showNotification(_ title: String, _ body: String) {

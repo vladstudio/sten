@@ -21,7 +21,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         updateMenu()
     }
 
-    func menuWillOpen(_ menu: NSMenu) { updateMenu() }
+    func menuWillOpen(_ menu: NSMenu) { }
 
     func showPermissionsRequired(mic: Bool, accessibility: Bool) {
         permissionsMode = true
@@ -152,6 +152,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         loginItem.target = self
         loginItem.state = settings.startOnLogin ? .on : .off
         menu.addItem(loginItem)
+        menu.addItem(buildTransformsMenu())
         menu.addItem(.separator())
         let about = NSMenuItem(title: "About Sten", action: #selector(openAbout), keyEquivalent: "")
         about.target = self
@@ -171,6 +172,39 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func cancelAction() { onCancel?() }
     @objc private func toggleLogin() { settings.startOnLogin.toggle(); updateMenu() }
     @objc private func openAbout() { if let url = URL(string: "https://sten.vlad.studio") { NSWorkspace.shared.open(url) } }
+
+    static let transformsDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".sten/transforms")
+
+    private func buildTransformsMenu() -> NSMenuItem {
+        let item = NSMenuItem(title: "Text transforms", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        let scripts = (try? FileManager.default.contentsOfDirectory(atPath: Self.transformsDir.path))?.sorted() ?? []
+        for name in scripts {
+            let mi = NSMenuItem(title: name, action: #selector(toggleTransform(_:)), keyEquivalent: "")
+            mi.target = self
+            mi.state = settings.enabledTransforms.contains(name) ? .on : .off
+            sub.addItem(mi)
+        }
+        if !scripts.isEmpty { sub.addItem(.separator()) }
+        let open = NSMenuItem(title: "Open transforms folder", action: #selector(openTransformsFolder), keyEquivalent: "")
+        open.target = self
+        sub.addItem(open)
+        item.submenu = sub
+        return item
+    }
+
+    @objc private func toggleTransform(_ sender: NSMenuItem) {
+        var enabled = settings.enabledTransforms
+        if enabled.contains(sender.title) { enabled.remove(sender.title); sender.state = .off }
+        else { enabled.insert(sender.title); sender.state = .on }
+        settings.enabledTransforms = enabled
+    }
+
+    @objc private func openTransformsFolder() {
+        let fm = FileManager.default
+        try? fm.createDirectory(at: Self.transformsDir, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(Self.transformsDir)
+    }
 
     private func modelDirectory() -> URL? {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("FluidAudio/Models")

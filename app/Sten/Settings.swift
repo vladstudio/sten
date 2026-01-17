@@ -24,6 +24,11 @@ final class Settings {
         get { defaults.bool(forKey: "onboardingDone") }
         set { defaults.set(newValue, forKey: "onboardingDone") }
     }
+
+    var enabledTransforms: Set<String> {
+        get { Set(defaults.stringArray(forKey: "enabledTransforms") ?? []) }
+        set { defaults.set(Array(newValue), forKey: "enabledTransforms") }
+    }
 }
 
 private extension UInt16 { func or(_ d: UInt16) -> UInt16 { self != 0 ? self : d } }
