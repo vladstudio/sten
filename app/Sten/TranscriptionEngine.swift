@@ -19,7 +19,9 @@ final class TranscriptionEngine {
         guard let manager, !audio.isEmpty else { return nil }
         do {
             let result = try await manager.transcribe(audio)
-            let text = result.text.trimmingCharacters(in: .whitespaces)
+            let text = result.text
+                .replacingOccurrences(of: "\n", with: " ")
+                .trimmingCharacters(in: .whitespaces)
             return text.isEmpty ? nil : text
         } catch {
             return nil
