@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var idleTimer: Timer?
     private var memorySource: DispatchSourceMemoryPressure?
     private var pendingListen = false
+    private var onboarding: OnboardingPanel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu = MenuBarController()
@@ -22,10 +23,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         memorySource = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
         memorySource?.setEventHandler { [weak self] in self?.pendingListen = false; self?.engine.unload() }
         memorySource?.resume()
-        requestPermissions()
+        if Settings.shared.onboardingDone { checkPermissionsAndUpdateMenu() }
+        else { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.showOnboarding() } }
     }
 
-    private func requestPermissions() { checkPermissionsAndUpdateMenu() }
+    private func showOnboarding() {
+        onboarding = OnboardingPanel()
+        onboarding?.loadModel = { [weak self] done in
+            Task {
+                let ok = await self?.engine.load() ?? false
+                await MainActor.run { done(ok) }
+            }
+        }
+        onboarding?.onComplete = { [weak self] in self?.onboarding = nil; self?.checkPermissionsAndUpdateMenu() }
+        onboarding?.onChangeHotkey = { [weak self] in self?.menu.showHotkeyPanel(below: self?.onboarding) }
+        if let button = menu.statusButton, let w = button.window {
+            onboarding?.positionBelow(w.convertToScreen(button.frame))
+        }
+        onboarding?.start()
+        onboarding?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
 
     @objc func checkPermissionsAndUpdateMenu() {
         let micGranted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized

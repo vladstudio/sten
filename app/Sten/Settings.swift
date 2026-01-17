@@ -19,6 +19,11 @@ final class Settings {
         get { defaults.bool(forKey: "hkSet") ? UInt64(clamping: defaults.integer(forKey: "hkMods")) : 0x180000 }
         set { defaults.set(Int(newValue), forKey: "hkMods") }
     }
+
+    var onboardingDone: Bool {
+        get { defaults.bool(forKey: "onboardingDone") }
+        set { defaults.set(newValue, forKey: "onboardingDone") }
+    }
 }
 
 private extension UInt16 { func or(_ d: UInt16) -> UInt16 { self != 0 ? self : d } }

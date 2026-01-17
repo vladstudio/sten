@@ -5,6 +5,7 @@ enum AppState { case idle, listening, transcribing, loading }
 
 final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    var statusButton: NSStatusBarButton? { statusItem.button }
     private let settings = Settings.shared
     var state: AppState = .idle { didSet { updateIcon(); updateMenu() } }
     var onHotkeyChange: ((Bool) -> Void)?
@@ -180,14 +181,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func toggleLogin() { settings.startOnLogin.toggle(); updateMenu() }
     @objc private func openAbout() { if let url = URL(string: "https://sten.vlad.studio") { NSWorkspace.shared.open(url) } }
 
-    @objc private func openHotkeyPanel() {
+    @objc private func openHotkeyPanel() { showHotkeyPanel(below: nil) }
+
+    func showHotkeyPanel(below anchor: NSWindow?) {
         guard hotkeyPanel == nil else { return }
         hotkeyPanel = HotkeyPanel()
         hotkeyPanel?.onSave = { [weak self] in self?.updateMenu() }
         hotkeyPanel?.onClose = { [weak self] in self?.hotkeyPanel = nil; self?.onHotkeyChange?(true) }
-        if let button = statusItem.button, let w = button.window {
-            hotkeyPanel?.positionBelow(w.convertToScreen(button.frame))
-        }
+        if let anchor { hotkeyPanel?.positionBelow(anchor.frame) }
+        else if let button = statusItem.button, let w = button.window { hotkeyPanel?.positionBelow(w.convertToScreen(button.frame)) }
         onHotkeyChange?(false)
         hotkeyPanel?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
