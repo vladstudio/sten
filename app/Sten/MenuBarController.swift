@@ -7,6 +7,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     var statusButton: NSStatusBarButton? { statusItem.button }
     private let settings = Settings.shared
     var state: AppState = .idle { didSet { updateIcon(); updateMenu() } }
+    var modelReady = false { didSet { if oldValue != modelReady { updateMenu() } } }
     var onHotkeyChange: ((Bool) -> Void)?
     var onListen: (() -> Void)?
     var onTranscribe: (() -> Void)?
@@ -131,12 +132,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         switch state {
-        case .idle:
+        case .idle where modelReady:
             let listen = NSMenuItem(title: "Listen", action: #selector(listenAction), keyEquivalent: "")
-            listen.target = self
-            listen.isEnabled = settings.onboardingDone
-            configureListenHotkey(listen)
+            listen.target = self; listen.isEnabled = settings.onboardingDone; configureListenHotkey(listen)
             menu.addItem(listen)
+        case .idle:
+            menu.addItem(NSMenuItem(title: "Loading model...", action: nil, keyEquivalent: ""))
         case .listening:
             menu.addItem(NSMenuItem(title: "Listening...", action: nil, keyEquivalent: ""))
             let transcribe = NSMenuItem(title: "Transcribe", action: #selector(transcribeAction), keyEquivalent: "")

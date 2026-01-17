@@ -99,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func loadEngineIfNeeded() {
         guard !engine.isReady else {
+            menu.modelReady = true
             if pendingListen { pendingListen = false; startListening() }
             return
         }
@@ -106,16 +107,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             let ok = await engine.load()
             await MainActor.run {
-                menu.state = .idle
-                if !ok {
-                    pendingListen = false
-                    showNotification("Model Error", "Failed to load model")
-                } else if pendingListen {
-                    pendingListen = false
-                    startListening()
-                } else {
-                    scheduleIdleUnload()
-                }
+                menu.modelReady = ok; menu.state = .idle
+                if !ok { pendingListen = false; showNotification("Model Error", "Failed to load model") }
+                else if pendingListen { pendingListen = false; startListening() }
+                else { scheduleIdleUnload() }
             }
         }
     }
@@ -123,7 +118,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func scheduleIdleUnload() {
         idleTimer?.invalidate()
         idleTimer = Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: false) { [weak self] _ in
-            self?.engine.unload()
+            self?.engine.unload(); self?.menu.modelReady = false
         }
     }
 
