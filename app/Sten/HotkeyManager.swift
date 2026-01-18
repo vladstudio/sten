@@ -11,6 +11,8 @@ final class HotkeyManager {
     private static let modifierKeys: Set<UInt16> = [54, 55, 56, 57, 58, 59, 60, 61, 62, 63] // cmd/shift/opt/ctrl/caps/fn
 
     var onPress: (() -> Void)?
+    var onTapFailed: (() -> Void)?
+    private(set) var isRunning = false
 
     deinit { stop() }
 
@@ -47,10 +49,14 @@ final class HotkeyManager {
         if isModifierKey { mask |= (1 << CGEventType.flagsChanged.rawValue) }
         tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
                                 eventsOfInterest: CGEventMask(mask), callback: cb, userInfo: Unmanaged.passUnretained(self).toOpaque())
-        guard let tap else { return }
+        guard let tap else {
+            onTapFailed?()
+            return
+        }
         runLoopSource = CFMachPortCreateRunLoopSource(nil, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+        isRunning = true
     }
 
     private func isModifierDown(_ flags: CGEventFlags) -> Bool {
@@ -68,6 +74,9 @@ final class HotkeyManager {
     func stop() {
         if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
         if let src = runLoopSource { CFRunLoopRemoveSource(CFRunLoopGetCurrent(), src, .commonModes) }
-        tap = nil; runLoopSource = nil; pressTime = nil
+        tap = nil
+        runLoopSource = nil
+        pressTime = nil
+        isRunning = false
     }
 }

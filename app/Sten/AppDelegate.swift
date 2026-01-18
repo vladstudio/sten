@@ -3,6 +3,10 @@ import AVFoundation
 import UserNotifications
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private static let idleUnloadSeconds: TimeInterval = 15 * 60
+    private static let minAudioSamples = AudioRecorder.sampleRate / 2  // 0.5 seconds
+    private static let transformTimeoutSeconds: TimeInterval = 30
+
     private var menu: MenuBarController!
     private let hotkey = HotkeyManager()
     private let recorder = AudioRecorder()
@@ -96,6 +100,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if menu.state == .idle { startListening() }
             else if menu.state == .listening { stopListening() }
         }
+        hotkey.onTapFailed = { [weak self] in
+            self?.checkPermissionsAndUpdateMenu()
+        }
     }
 
     private func loadEngineIfNeeded() {
@@ -118,8 +125,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func scheduleIdleUnload() {
         idleTimer?.invalidate()
-        idleTimer = Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: false) { [weak self] _ in
-            self?.engine.unload(); self?.menu.modelReady = false
+        idleTimer = Timer.scheduledTimer(withTimeInterval: Self.idleUnloadSeconds, repeats: false) { [weak self] _ in
+            self?.engine.unload()
+            self?.menu.modelReady = false
         }
     }
 
@@ -136,12 +144,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         listeningPanel?.makeKeyAndOrderFront(nil)
     }
 
-    private func closeListeningPanel() { let p = listeningPanel; listeningPanel = nil; recorder.onLevel = nil; p?.onCancel = nil; p?.close() }
+    private func closeListeningPanel() {
+        let panel = listeningPanel
+        listeningPanel = nil
+        recorder.onLevel = nil
+        panel?.onCancel = nil
+        panel?.close()
+    }
 
     private func stopListening() {
         let audio = recorder.stop()
         closeListeningPanel()
-        guard audio.count > 8000 else { menu.state = .idle; scheduleIdleUnload(); return }
+        guard audio.count > Self.minAudioSamples else {
+            menu.state = .idle
+            scheduleIdleUnload()
+            return
+        }
         menu.state = .transcribing
         Task {
             let text = await engine.transcribe(audio)
@@ -185,17 +203,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             proc.standardInput = stdin
             proc.standardOutput = stdout
             proc.standardError = FileHandle.nullDevice
-            defer { try? stdin.fileHandleForWriting.close(); try? stdout.fileHandleForReading.close() }
+            defer {
+                try? stdin.fileHandleForWriting.close()
+                try? stdout.fileHandleForReading.close()
+            }
             do {
                 try proc.run()
                 stdin.fileHandleForWriting.write(result.data(using: .utf8) ?? Data())
                 stdin.fileHandleForWriting.closeFile()
+
+                // Apply timeout to prevent hanging on slow scripts
+                let deadline = DispatchTime.now() + Self.transformTimeoutSeconds
+                DispatchQueue.global().asyncAfter(deadline: deadline) { [weak proc] in
+                    if proc?.isRunning == true { proc?.terminate() }
+                }
                 proc.waitUntilExit()
+
                 let outData = stdout.fileHandleForReading.readDataToEndOfFile()
                 if proc.terminationStatus == 0, let out = String(data: outData, encoding: .utf8), !out.isEmpty {
                     result = out.trimmingCharacters(in: .newlines)
                 }
-            } catch {}
+            } catch {
+                // Script execution failed, continue with current result
+            }
         }
         return result
     }

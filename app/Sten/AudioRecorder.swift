@@ -2,10 +2,13 @@ import AVFoundation
 import Accelerate
 
 final class AudioRecorder {
+    static let sampleRate = 16000
+    static let maxDurationSeconds = 5 * 60
+
     private var engine: AVAudioEngine?
     private var buffer: [Float] = []
     private let lock = NSLock()
-    private let maxSamples = 16000 * 60 * 5
+    private let maxSamples = sampleRate * maxDurationSeconds
     var onLevel: ((Float) -> Void)?
 
     func start() throws {
@@ -20,18 +23,21 @@ final class AudioRecorder {
         guard native.sampleRate > 0, native.channelCount > 0 else {
             throw NSError(domain: "AudioRecorder", code: 2, userInfo: [NSLocalizedDescriptionKey: "Audio hardware not ready"])
         }
-        guard let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false),
+        guard let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(Self.sampleRate), channels: 1, interleaved: false),
               let converter = AVAudioConverter(from: native, to: target) else {
             throw NSError(domain: "AudioRecorder", code: 1)
         }
 
         input.installTap(onBus: 0, bufferSize: 4096, format: native) { [weak self] buf, _ in
-            guard let self, let out = Self.convert(buf, converter) else { return }
-            let data = out.floatChannelData![0], count = Int(out.frameLength)
+            guard let self, let out = Self.convert(buf, converter),
+                  let channelData = out.floatChannelData?[0] else { return }
+            let count = Int(out.frameLength)
             self.lock.lock()
-            if self.buffer.count + count <= self.maxSamples { self.buffer.append(contentsOf: UnsafeBufferPointer(start: data, count: count)) }
+            if self.buffer.count + count <= self.maxSamples {
+                self.buffer.append(contentsOf: UnsafeBufferPointer(start: channelData, count: count))
+            }
             self.lock.unlock()
-            let rms = sqrt(vDSP.meanSquare(UnsafeBufferPointer(start: data, count: count)))
+            let rms = sqrt(vDSP.meanSquare(UnsafeBufferPointer(start: channelData, count: count)))
             DispatchQueue.main.async { [weak self] in self?.onLevel?(rms) }
         }
 

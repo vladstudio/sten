@@ -4,8 +4,12 @@ final class TranscriptionEngine {
     private var models: AsrModels?
     private var manager: AsrManager?
     private(set) var isReady = false
+    private var isLoading = false
 
     func load() async -> Bool {
+        guard !isReady, !isLoading else { return isReady }
+        isLoading = true
+        defer { isLoading = false }
         do {
             models = try await AsrModels.downloadAndLoad(version: .v3)
             guard let m = models else { return false }
