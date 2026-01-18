@@ -1,3 +1,4 @@
+// Speech-to-text engine using FluidAudio (on-device Whisper model)
 import FluidAudio
 
 final class TranscriptionEngine {
@@ -6,6 +7,7 @@ final class TranscriptionEngine {
     private(set) var isReady = false
     private var isLoading = false
 
+    // Download and initialize the speech model
     func load() async -> Bool {
         guard !isReady, !isLoading else { return isReady }
         isLoading = true
@@ -21,6 +23,7 @@ final class TranscriptionEngine {
         } catch { return false }
     }
 
+    // Transcribe audio samples to text
     func transcribe(_ audio: [Float]) async -> String? {
         guard let manager, !audio.isEmpty else { return nil }
         do {
@@ -34,6 +37,7 @@ final class TranscriptionEngine {
         }
     }
 
+    // Release model from memory
     func unload() {
         isReady = false
         manager = nil

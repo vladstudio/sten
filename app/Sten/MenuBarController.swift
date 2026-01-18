@@ -1,3 +1,4 @@
+// Menu bar icon and dropdown menu - shows app state and provides controls
 import AppKit
 
 enum AppState { case idle, listening, transcribing, loading }
@@ -8,10 +9,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let settings = Settings.shared
     var state: AppState = .idle { didSet { updateIcon(); updateMenu() } }
     var modelReady = false { didSet { if oldValue != modelReady { updateMenu() } } }
+
+    // Callbacks to AppDelegate
     var onHotkeyChange: ((Bool) -> Void)?
     var onListen: (() -> Void)?
     var onTranscribe: (() -> Void)?
     var onCancel: (() -> Void)?
+
     private var hotkeyPanel: HotkeyPanel?
     private var confirmPanel: ConfirmPanel?
     private var permissionsMode = false
@@ -22,6 +26,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         updateMenu()
     }
 
+    // Populate transforms submenu when opened
     func menuWillOpen(_ menu: NSMenu) {
         guard menu.title == "transforms" else { return }
         let scripts = Set((try? FileManager.default.contentsOfDirectory(atPath: Self.transformsDir.path))?.filter { !$0.hasPrefix(".") } ?? [])
@@ -34,6 +39,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
     }
 
+    // Show permissions-required menu when mic or accessibility missing
     func showPermissionsRequired(mic: Bool, accessibility: Bool) {
         permissionsMode = true
         let menu = NSMenu()
@@ -73,6 +79,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         return img
     }
 
+    // Update menu bar icon based on current state
     private func updateIcon() {
         let name: String
         if permissionsMode {
@@ -98,10 +105,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
 
+    // Configure Listen menu item with hotkey shortcut
     private func configureListenHotkey(_ item: NSMenuItem) {
         let code = settings.hotkeyCode
         let mods = settings.hotkeyModifiers
         if mods == 0 {
+            // Special key (no modifiers) - show as grayed text
             let hotkey = HotkeyPanel.hotkeyString(code, CGEventFlags(rawValue: mods))
             let para = NSMutableParagraphStyle()
             para.tabStops = [NSTextTab(textAlignment: .right, location: 160)]
@@ -123,6 +132,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         return special[code] ?? translateKeyCode(code)?.lowercased()
     }
 
+    // Rebuild menu based on current state
     func updateMenu() {
         if permissionsMode { return }
         let menu = NSMenu()

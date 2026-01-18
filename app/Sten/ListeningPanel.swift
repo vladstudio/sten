@@ -1,3 +1,4 @@
+// Floating panel shown during recording with audio visualizer and transcribe button
 import AppKit
 
 final class ListeningPanel: NSPanel {

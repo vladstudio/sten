@@ -1,3 +1,4 @@
+// Checks GitHub releases for updates and prompts user to install
 import AppKit
 
 enum UpdateChecker {
@@ -34,6 +35,7 @@ enum UpdateChecker {
         if alert.runModal() == .alertFirstButtonReturn { runUpdate() }
     }
 
+    // Run install script in Terminal and quit app
     static func runUpdate() {
         let script = "curl -fsSL https://raw.githubusercontent.com/\(repo)/main/install.sh | bash"
         let osa = "tell app \"Terminal\" to do script \"\(script)\""

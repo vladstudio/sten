@@ -1,6 +1,8 @@
+// Types text into the active app by simulating keyboard events
 import Carbon
 
 enum TextInjector {
+    // Inject text character by character using CGEvents
     static func inject(_ text: String) -> Bool {
         guard let source = CGEventSource(stateID: .hidSystemState) else { return false }
         for char in text.unicodeScalars {

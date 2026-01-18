@@ -1,3 +1,4 @@
+// Panel for setting global hotkey - captures key press or allows special key buttons
 import AppKit
 
 final class HotkeyPanel: NSPanel {
@@ -28,6 +29,7 @@ final class HotkeyPanel: NSPanel {
         hint.font = .systemFont(ofSize: 11)
         hint.textColor = .secondaryLabelColor
 
+        // Special key buttons for modifier-only hotkeys
         let btnRow = NSStackView()
         btnRow.spacing = 8
         for (title, code) in Self.specialKeys {
@@ -35,7 +37,7 @@ final class HotkeyPanel: NSPanel {
             btn.tag = Int(code)
             btn.bezelStyle = .rounded
             btn.controlSize = .small
-            btn.refusesFirstResponder = true // don't steal keyboard focus
+            btn.refusesFirstResponder = true
             specialButtons[code] = btn
             btnRow.addArrangedSubview(btn)
         }
@@ -66,10 +68,10 @@ final class HotkeyPanel: NSPanel {
     override func close() { super.close(); onClose?() }
 
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 { close(); return } // Esc
+        if event.keyCode == 53 { close(); return }  // Esc
         guard !saved else { return }
         let mods = event.modifierFlags.intersection([.command, .option, .shift, .control])
-        guard !mods.isEmpty else { return } // require at least one modifier
+        guard !mods.isEmpty else { return }  // Require at least one modifier
         saveHotkey(event.keyCode, CGEventFlags(rawValue: UInt64(mods.rawValue)).rawValue)
     }
 
@@ -89,6 +91,7 @@ final class HotkeyPanel: NSPanel {
         label.stringValue = Self.hotkeyString(Settings.shared.hotkeyCode, CGEventFlags(rawValue: Settings.shared.hotkeyModifiers))
     }
 
+    // Format hotkey as human-readable string (e.g., "⌘⇧K")
     static func hotkeyString(_ code: UInt16, _ mods: CGEventFlags) -> String {
         var s = ""
         if mods.contains(.maskControl) { s += "⌃" }

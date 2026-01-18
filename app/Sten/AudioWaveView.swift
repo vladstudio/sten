@@ -1,3 +1,5 @@
+// Animated audio level visualizer using Core Animation
+// Bars scroll continuously left; heights normalized to visible peak
 import AppKit
 import QuartzCore
 
@@ -10,8 +12,8 @@ final class AudioWaveView: NSView {
     }
 
     private let barWidth: CGFloat = 3
-    private let speed: CGFloat = 25
-    private let scrollDistance: CGFloat = 10000
+    private let speed: CGFloat = 25              // Scroll speed in pixels/sec
+    private let scrollDistance: CGFloat = 10000  // Virtual container width
     private let minPeak: Float = 0.001
     private let minHeight: CGFloat = 2
     private let cornerRadius: CGFloat = 1.5
@@ -36,7 +38,7 @@ final class AudioWaveView: NSView {
         super.layout()
         guard bounds.height > 0, container == nil else { return }
 
-        // Gradient mask for left fade
+        // Gradient mask fades bars on the left edge
         let mask = CAGradientLayer()
         mask.frame = bounds
         mask.colors = [CGColor(gray: 0, alpha: 0), CGColor(gray: 0, alpha: 1)]
@@ -45,13 +47,13 @@ final class AudioWaveView: NSView {
         mask.endPoint = CGPoint(x: 1, y: 0.5)
         layer?.mask = mask
 
-        // Background center line
+        // Static center line
         let line = CAShapeLayer()
         line.path = CGPath(rect: CGRect(x: 0, y: bounds.midY - 0.5, width: bounds.width, height: 1), transform: nil)
         line.fillColor = NSColor.secondaryLabelColor.withAlphaComponent(0.2).cgColor
         layer?.addSublayer(line)
 
-        // Scrolling container
+        // Container layer scrolls infinitely via CABasicAnimation
         let c = CALayer()
         c.anchorPoint = .zero
         c.position = .zero
@@ -68,16 +70,17 @@ final class AudioWaveView: NSView {
         anim.repeatCount = .infinity
         c.add(anim, forKey: "scroll")
 
+        // Timer updates bar heights as peak changes
         updateTimer = Timer(timeInterval: 1.0/30, repeats: true) { [weak self] _ in self?.updateBars() }
         RunLoop.main.add(updateTimer!, forMode: .common)
     }
 
     private func updateBars() {
-        // Calculate current scroll offset
+        // Calculate current scroll position
         let elapsed = CACurrentMediaTime() - animationStart
         let scrollOffset = CGFloat(elapsed.truncatingRemainder(dividingBy: scrollDistance / speed)) * speed
 
-        // Find peak only from currently visible bars
+        // Peak is max level of currently visible bars only
         var visiblePeak: Float = minPeak
         for bar in bars {
             let screenX = bar.x - scrollOffset
@@ -85,13 +88,13 @@ final class AudioWaveView: NSView {
                 visiblePeak = max(visiblePeak, bar.level)
             }
         }
-        peak = max(peak * 0.9, visiblePeak)
+        peak = max(peak * 0.9, visiblePeak)  // Decay peak gradually
 
         for bar in bars {
             updateBarAppearance(bar)
         }
 
-        // Clean up old bars
+        // Remove bars that have scrolled off screen
         let cutoff = CACurrentMediaTime() - (bounds.width + 50) / speed
         while let first = bars.first, first.time < cutoff {
             first.layer.removeFromSuperlayer()
@@ -106,11 +109,13 @@ final class AudioWaveView: NSView {
         bar.layer.fillColor = NSColor.controlAccentColor.cgColor
     }
 
+    // Called by AudioRecorder with RMS level for each audio buffer
     func addLevel(_ level: Float) {
         guard let container, bounds.height > 0 else { return }
 
         peak = max(peak, level, minPeak)
 
+        // Position bar at right edge of visible area (accounting for scroll)
         let elapsed = CACurrentMediaTime() - animationStart
         let scrolled = CGFloat(elapsed.truncatingRemainder(dividingBy: scrollDistance / speed)) * speed
         let x = bounds.width + scrolled

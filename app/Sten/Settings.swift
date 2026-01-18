@@ -1,3 +1,4 @@
+// Persistent user preferences stored in UserDefaults
 import Foundation
 import ServiceManagement
 
@@ -5,11 +6,13 @@ final class Settings {
     static let shared = Settings()
     private let defaults = UserDefaults.standard
 
+    // Launch at login via SMAppService
     var startOnLogin: Bool {
         get { SMAppService.mainApp.status == .enabled }
         set { try? newValue ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister() }
     }
 
+    // Global hotkey settings (keycode + modifiers)
     var hotkeyCode: UInt16 {
         get { UInt16(clamping: defaults.integer(forKey: "hkCode")).or(49) }
         set { defaults.set(Int(newValue), forKey: "hkCode"); defaults.set(true, forKey: "hkSet") }
@@ -25,6 +28,7 @@ final class Settings {
         set { defaults.set(newValue, forKey: "onboardingDone") }
     }
 
+    // Set of enabled transform script names
     var enabledTransforms: Set<String> {
         get { Set(defaults.stringArray(forKey: "enabledTransforms") ?? []) }
         set { defaults.set(Array(newValue), forKey: "enabledTransforms") }

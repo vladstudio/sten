@@ -1,3 +1,4 @@
+// Main app coordinator - manages recording, transcription, permissions, and UI state
 import AppKit
 import AVFoundation
 import UserNotifications
@@ -25,9 +26,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.onTranscribe = { [weak self] in self?.stopListening() }
         menu.onCancel = { [weak self] in self?.cancelOperation() }
         setupHotkey()
+
+        // Unload model on memory pressure
         memorySource = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
         memorySource?.setEventHandler { [weak self] in self?.pendingListen = false; self?.engine.unload() }
         memorySource?.resume()
+
         if Settings.shared.onboardingDone { checkPermissionsAndUpdateMenu(); UpdateChecker.check() }
         else { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.showOnboarding() } }
     }
@@ -57,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    // Check mic + accessibility permissions, show appropriate UI
     @objc func checkPermissionsAndUpdateMenu() {
         let micGranted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
         let accessibilityGranted = AXIsProcessTrusted()
@@ -105,6 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // Load model on demand, unload after idle timeout
     private func loadEngineIfNeeded() {
         guard !engine.isReady else {
             menu.modelReady = true
@@ -131,6 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // Start recording and show listening panel
     private func startListening() {
         idleTimer?.invalidate()
         guard engine.isReady else { pendingListen = true; loadEngineIfNeeded(); return }
@@ -152,6 +159,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel?.close()
     }
 
+    // Stop recording, transcribe, apply transforms, output text
     private func stopListening() {
         let audio = recorder.stop()
         closeListeningPanel()
@@ -179,6 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scheduleIdleUnload()
     }
 
+    // Inject text into active app or show notification
     private func outputText(_ text: String) {
         guard let app = NSWorkspace.shared.frontmostApplication, app.bundleIdentifier != Bundle.main.bundleIdentifier else {
             showNotification("Transcription", text)
@@ -187,6 +196,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !TextInjector.inject(text) { showNotification("Transcription", text) }
     }
 
+    // Run enabled transform scripts sequentially, piping text through each
     private func applyTransforms(_ text: String) -> String {
         let dir = MenuBarController.transformsDir
         let enabled = Settings.shared.enabledTransforms
@@ -212,7 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 stdin.fileHandleForWriting.write(result.data(using: .utf8) ?? Data())
                 stdin.fileHandleForWriting.closeFile()
 
-                // Apply timeout to prevent hanging on slow scripts
+                // Timeout prevents hanging on slow scripts
                 let deadline = DispatchTime.now() + Self.transformTimeoutSeconds
                 DispatchQueue.global().asyncAfter(deadline: deadline) { [weak proc] in
                     if proc?.isRunning == true { proc?.terminate() }

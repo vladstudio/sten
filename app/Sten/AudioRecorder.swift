@@ -1,3 +1,4 @@
+// Records audio from microphone, converts to 16kHz mono, reports RMS levels
 import AVFoundation
 import Accelerate
 
@@ -9,7 +10,7 @@ final class AudioRecorder {
     private var buffer: [Float] = []
     private let lock = NSLock()
     private let maxSamples = sampleRate * maxDurationSeconds
-    var onLevel: ((Float) -> Void)?
+    var onLevel: ((Float) -> Void)?  // Called with RMS level for visualizer
 
     func start() throws {
         _ = stop()
@@ -19,6 +20,7 @@ final class AudioRecorder {
         let input = eng.inputNode
         eng.prepare()
 
+        // Get native format and create converter to target format
         let native = input.outputFormat(forBus: 0)
         guard native.sampleRate > 0, native.channelCount > 0 else {
             throw NSError(domain: "AudioRecorder", code: 2, userInfo: [NSLocalizedDescriptionKey: "Audio hardware not ready"])
@@ -28,6 +30,7 @@ final class AudioRecorder {
             throw NSError(domain: "AudioRecorder", code: 1)
         }
 
+        // Install tap to capture and convert audio buffers
         input.installTap(onBus: 0, bufferSize: 4096, format: native) { [weak self] buf, _ in
             guard let self, let out = Self.convert(buf, converter),
                   let channelData = out.floatChannelData?[0] else { return }
@@ -37,6 +40,7 @@ final class AudioRecorder {
                 self.buffer.append(contentsOf: UnsafeBufferPointer(start: channelData, count: count))
             }
             self.lock.unlock()
+            // Calculate RMS for level visualization
             let rms = sqrt(vDSP.meanSquare(UnsafeBufferPointer(start: channelData, count: count)))
             DispatchQueue.main.async { [weak self] in self?.onLevel?(rms) }
         }
@@ -60,6 +64,7 @@ final class AudioRecorder {
         return result
     }
 
+    // Resample audio buffer to target format
     private static func convert(_ buf: AVAudioPCMBuffer, _ converter: AVAudioConverter) -> AVAudioPCMBuffer? {
         let capacity = AVAudioFrameCount(Double(buf.frameLength) * converter.outputFormat.sampleRate / converter.inputFormat.sampleRate)
         guard let out = AVAudioPCMBuffer(pcmFormat: converter.outputFormat, frameCapacity: capacity) else { return nil }

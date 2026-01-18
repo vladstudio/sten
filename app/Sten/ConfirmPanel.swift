@@ -1,3 +1,4 @@
+// Simple confirmation dialog with cancel and confirm buttons
 import AppKit
 
 final class ConfirmPanel: NSPanel {
@@ -15,7 +16,7 @@ final class ConfirmPanel: NSPanel {
 
         let cancel = NSButton(title: "Cancel", target: self, action: #selector(close))
         cancel.bezelStyle = .rounded
-        cancel.keyEquivalent = "\u{1B}"
+        cancel.keyEquivalent = "\u{1B}"  // Esc
 
         let confirm = NSButton(title: confirmTitle, target: self, action: #selector(confirmAction))
         confirm.bezelStyle = .rounded

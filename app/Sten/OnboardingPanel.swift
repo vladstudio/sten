@@ -1,3 +1,4 @@
+// First-run wizard - guides through permissions, model download, and optional transform setup
 import AppKit
 import AVFoundation
 
@@ -41,6 +42,7 @@ final class OnboardingPanel: NSPanel {
 
     private static let transformScript = MenuBarController.transformsDir.appendingPathComponent("01 Grammar and Custom Words.rb")
 
+    // Determine next step based on what's still needed
     private func nextStep() {
         if AVCaptureDevice.authorizationStatus(for: .audio) != .authorized { step = .mic }
         else if !AXIsProcessTrusted() { step = .accessibility }
@@ -63,7 +65,7 @@ final class OnboardingPanel: NSPanel {
         case .accessibility:
             label.stringValue = "Sten needs accessibility access to type text into other apps.\n\nClick the button, then enable Sten in System Settings."
             button.title = "Open System Settings"
-            startPolling { AXIsProcessTrusted() } then: { [weak self] in self?.nextStep() }
+            startPolling(check: { AXIsProcessTrusted() }, then: { [weak self] in self?.nextStep() })
         case .model:
             label.stringValue = "Downloading speech recognition model...\nThis runs entirely on your device for privacy."
             button.title = "Downloading..."
@@ -109,6 +111,7 @@ final class OnboardingPanel: NSPanel {
         if step == .model { onCancel?() } else if step == .transforms { step = .done } else { onChangeHotkey?() }
     }
 
+    // Create default Gemini-powered grammar transform script
     private func createTransformScript() {
         if let key = ProcessInfo.processInfo.environment["GEMINI_API_KEY"], !key.isEmpty {
             writeTransformScript(apiKey: key); step = .done
@@ -154,6 +157,7 @@ final class OnboardingPanel: NSPanel {
         Settings.shared.enabledTransforms.insert("01 Grammar and Custom Words.rb")
     }
 
+    // Poll condition until true, then call callback
     private func startPolling(check: @escaping () -> Bool, then: @escaping () -> Void) {
         checkTimer?.invalidate()
         checkTimer = Timer(timeInterval: 0.5, repeats: true) { [weak self] t in
