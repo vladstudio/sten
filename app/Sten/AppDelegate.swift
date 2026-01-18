@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         memorySource = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
         memorySource?.setEventHandler { [weak self] in self?.pendingListen = false; self?.engine.unload() }
         memorySource?.resume()
-        if Settings.shared.onboardingDone { checkPermissionsAndUpdateMenu(); UpdateChecker.checkOnLaunch() }
+        if Settings.shared.onboardingDone { checkPermissionsAndUpdateMenu(); UpdateChecker.check() }
         else { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.showOnboarding() } }
     }
 

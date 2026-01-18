@@ -3,17 +3,26 @@ import AppKit
 enum UpdateChecker {
     static let repo = "vladstudio/sten"
 
-    static func checkOnLaunch() {
+    static func check(manual: Bool = false) {
         let url = URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!
         URLSession.shared.dataTask(with: url) { data, _, _ in
             guard let data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let tag = json["tag_name"] as? String else { return }
             let latest = tag.trimmingCharacters(in: CharacterSet(charactersIn: "v"))
             let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
-            if latest.compare(current, options: .numeric) == .orderedDescending {
-                DispatchQueue.main.async { promptUpdate(latest) }
+            DispatchQueue.main.async {
+                if latest.compare(current, options: .numeric) == .orderedDescending { promptUpdate(latest) }
+                else if manual { showUpToDate() }
             }
         }.resume()
+    }
+
+    static func showUpToDate() {
+        let alert = NSAlert()
+        alert.messageText = "You're up to date"
+        alert.informativeText = "Sten \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "") is the latest version."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     static func promptUpdate(_ version: String) {

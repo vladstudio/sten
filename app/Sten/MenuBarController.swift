@@ -186,7 +186,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func cancelAction() { onCancel?() }
     @objc private func toggleLogin() { settings.startOnLogin.toggle(); updateMenu() }
     @objc private func openAbout() { if let url = URL(string: "https://sten.vlad.studio") { NSWorkspace.shared.open(url) } }
-    @objc private func checkUpdate() { UpdateChecker.checkOnLaunch() }
+    @objc private func checkUpdate() { UpdateChecker.check(manual: true) }
 
     static let transformsDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".sten/transforms")
 
