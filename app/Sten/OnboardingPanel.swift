@@ -55,7 +55,7 @@ final class OnboardingPanel: NSPanel {
         button.isEnabled = true
         switch step {
         case .welcome:
-            label.stringValue = "Thanks for installing Sten!\nWe need a few permissions to get started."
+            label.stringValue = "Thanks for installing Sten!\nLet's get started."
             button.title = "Next"
         case .mic:
             label.stringValue = "Sten needs microphone access to hear your voice."
@@ -155,6 +155,7 @@ final class OnboardingPanel: NSPanel {
     }
 
     private func startPolling(check: @escaping () -> Bool, then: @escaping () -> Void) {
+        checkTimer?.invalidate()
         checkTimer = Timer(timeInterval: 0.5, repeats: true) { [weak self] t in
             if check() { t.invalidate(); self?.checkTimer = nil; then() }
         }

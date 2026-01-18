@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var memorySource: DispatchSourceMemoryPressure?
     private var pendingListen = false
     private var onboarding: OnboardingPanel?
+    private var listeningPanel: ListeningPanel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu = MenuBarController()
@@ -124,16 +125,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startListening() {
         idleTimer?.invalidate()
-        guard engine.isReady else {
-            pendingListen = true
-            loadEngineIfNeeded()
-            return
-        }
+        guard engine.isReady else { pendingListen = true; loadEngineIfNeeded(); return }
         menu.state = .listening
-        do { try recorder.start() } catch { menu.state = .idle }
+        do { try recorder.start() } catch { menu.state = .idle; return }
+        listeningPanel = ListeningPanel()
+        listeningPanel?.onCancel = { [weak self] in self?.cancelOperation() }
+        listeningPanel?.onTranscribe = { [weak self] in self?.stopListening() }
+        recorder.onLevel = { [weak self] in self?.listeningPanel?.addLevel($0) }
+        if let btn = menu.statusButton, let w = btn.window { listeningPanel?.positionBelow(w.convertToScreen(btn.frame)) }
+        listeningPanel?.makeKeyAndOrderFront(nil)
     }
 
+    private func closeListeningPanel() { listeningPanel?.close(); listeningPanel = nil; recorder.onLevel = nil }
+
     private func stopListening() {
+        closeListeningPanel()
         let audio = recorder.stop()
         guard audio.count > 8000 else { menu.state = .idle; scheduleIdleUnload(); return }
         menu.state = .transcribing
@@ -149,12 +155,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func cancelOperation() {
-        if menu.state == .listening {
-            _ = recorder.stop()
-            menu.state = .idle
-        } else if menu.state == .transcribing {
-            menu.state = .idle
-        }
+        closeListeningPanel()
+        if menu.state == .listening { _ = recorder.stop(); menu.state = .idle }
+        else if menu.state == .transcribing { menu.state = .idle }
         scheduleIdleUnload()
     }
 
@@ -182,13 +185,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             proc.standardInput = stdin
             proc.standardOutput = stdout
             proc.standardError = FileHandle.nullDevice
+            defer { try? stdin.fileHandleForWriting.close(); try? stdout.fileHandleForReading.close() }
             do {
                 try proc.run()
                 stdin.fileHandleForWriting.write(result.data(using: .utf8) ?? Data())
                 stdin.fileHandleForWriting.closeFile()
                 proc.waitUntilExit()
                 let outData = stdout.fileHandleForReading.readDataToEndOfFile()
-                try? stdout.fileHandleForReading.close()
                 if proc.terminationStatus == 0, let out = String(data: outData, encoding: .utf8), !out.isEmpty {
                     result = out.trimmingCharacters(in: .newlines)
                 }

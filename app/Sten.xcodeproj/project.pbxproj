@@ -19,6 +19,8 @@
 		83AAA00A /* TextInjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA01D /* TextInjector.swift */; };
 		83AAA00B /* TranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA01E /* TranscriptionEngine.swift */; };
 		83AAA00C /* OnboardingPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA01F /* OnboardingPanel.swift */; };
+		83AAA00D /* ListeningPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA070 /* ListeningPanel.swift */; };
+		83AAA00E /* AudioWaveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AAA071 /* AudioWaveView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +39,8 @@
 		83AAA01D /* TextInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextInjector.swift; sourceTree = "<group>"; };
 		83AAA01E /* TranscriptionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionEngine.swift; sourceTree = "<group>"; };
 		83AAA01F /* OnboardingPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingPanel.swift; sourceTree = "<group>"; };
+		83AAA070 /* ListeningPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningPanel.swift; sourceTree = "<group>"; };
+		83AAA071 /* AudioWaveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioWaveView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,6 +77,8 @@
 				83AAA01D /* TextInjector.swift */,
 				83AAA01E /* TranscriptionEngine.swift */,
 				83AAA01F /* OnboardingPanel.swift */,
+				83AAA070 /* ListeningPanel.swift */,
+				83AAA071 /* AudioWaveView.swift */,
 				83AAA014 /* Info.plist */,
 				83AAA015 /* Sten.entitlements */,
 			);
@@ -167,6 +173,8 @@
 				83AAA00A /* TextInjector.swift in Sources */,
 				83AAA00B /* TranscriptionEngine.swift in Sources */,
 				83AAA00C /* OnboardingPanel.swift in Sources */,
+				83AAA00D /* ListeningPanel.swift in Sources */,
+				83AAA00E /* AudioWaveView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -12,6 +12,7 @@ final class AudioRecorder {
         guard !engine.isRunning else { return }
         lock.lock(); buffer.removeAll(); lock.unlock()
         let input = engine.inputNode
+        input.removeTap(onBus: 0)
         let native = input.outputFormat(forBus: 0)
         guard let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false),
               let converter = AVAudioConverter(from: native, to: target) else { throw NSError(domain: "AudioRecorder", code: 1) }
