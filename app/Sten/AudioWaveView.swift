@@ -24,7 +24,7 @@ final class AudioWaveView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor(red: 0.36, green: 0.55, blue: 0.94, alpha: 1).setFill()
+        NSColor.controlAccentColor.setFill()
         let mid = bounds.midY, peak = max(levels.max() ?? 0, 0.001)
         for (i, level) in levels.enumerated() {
             let x = CGFloat(i) * (barWidth + gap) - scrollOffset
