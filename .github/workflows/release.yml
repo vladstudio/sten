@@ -14,6 +14,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Import certificate
+        env:
+          CERT_P12: ${{ secrets.CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
+        run: |
+          echo "$CERT_P12" | base64 --decode > cert.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import cert.p12 -k build.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+          rm cert.p12
+
       - name: Build app
         run: |
           mkdir -p Sten.app/Contents/MacOS Sten.app/Contents/Resources
@@ -21,6 +34,9 @@ jobs:
           cp .build/release/Sten Sten.app/Contents/MacOS/
           cp app/Sten/Info.plist Sten.app/Contents/
           cp icons/*.png icons/*.icns Sten.app/Contents/Resources/ 2>/dev/null || true
+
+      - name: Sign app
+        run: codesign --force --deep --sign "Sten Signing" Sten.app
 
       - name: Create zip
         run: zip -r Sten.zip Sten.app
