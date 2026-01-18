@@ -8,7 +8,10 @@ enum UpdateChecker {
         let url = URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!
         URLSession.shared.dataTask(with: url) { data, _, _ in
             guard let data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let tag = json["tag_name"] as? String else { return }
+                  let tag = json["tag_name"] as? String,
+                  let assets = json["assets"] as? [[String: Any]],
+                  assets.contains(where: { ($0["name"] as? String)?.hasSuffix(".zip") == true })
+            else { return }
             let latest = tag.trimmingCharacters(in: CharacterSet(charactersIn: "v"))
             let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
             DispatchQueue.main.async {
