@@ -136,11 +136,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         listeningPanel?.makeKeyAndOrderFront(nil)
     }
 
-    private func closeListeningPanel() { let p = listeningPanel; listeningPanel = nil; recorder.onLevel = nil; p?.close() }
+    private func closeListeningPanel() { let p = listeningPanel; listeningPanel = nil; recorder.onLevel = nil; p?.onCancel = nil; p?.close() }
 
     private func stopListening() {
-        closeListeningPanel()
         let audio = recorder.stop()
+        closeListeningPanel()
         guard audio.count > 8000 else { menu.state = .idle; scheduleIdleUnload(); return }
         menu.state = .transcribing
         Task {
