@@ -16,7 +16,7 @@ final class AudioWaveView: NSView {
     }
 
     private func tick() {
-        scrollOffset += (barWidth + gap) / 15
+        scrollOffset += (barWidth + gap) / 5
         while scrollOffset >= barWidth + gap && levels.count > 40 {
             scrollOffset -= barWidth + gap; levels.removeFirst(); display.removeFirst()
         }
@@ -31,7 +31,7 @@ final class AudioWaveView: NSView {
         for (i, d) in display.enumerated() {
             let x = CGFloat(i) * (barWidth + gap) - scrollOffset
             guard x > -barWidth && x < bounds.width else { continue }
-            let h = max(d * bounds.height * 0.8, 2)
+            let h = max(d * bounds.height, 2)
             (h < barWidth ? NSColor.secondaryLabelColor.withAlphaComponent(0.2) : NSColor.controlAccentColor).setFill()
             NSBezierPath(roundedRect: NSRect(x: x, y: mid - h / 2, width: barWidth, height: h), xRadius: 2, yRadius: 2).fill()
         }
