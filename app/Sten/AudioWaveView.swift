@@ -73,15 +73,26 @@ final class AudioWaveView: NSView {
     }
 
     private func updateBars() {
-        peak = max(peak * 0.95, minPeak)
-        peak = max(peak, bars.map(\.level).max() ?? minPeak)
+        // Calculate current scroll offset
+        let elapsed = CACurrentMediaTime() - animationStart
+        let scrollOffset = CGFloat(elapsed.truncatingRemainder(dividingBy: scrollDistance / speed)) * speed
+
+        // Find peak only from currently visible bars
+        var visiblePeak: Float = minPeak
+        for bar in bars {
+            let screenX = bar.x - scrollOffset
+            if screenX > -barWidth && screenX < bounds.width {
+                visiblePeak = max(visiblePeak, bar.level)
+            }
+        }
+        peak = max(peak * 0.9, visiblePeak)
 
         for bar in bars {
             updateBarAppearance(bar)
         }
 
         // Clean up old bars
-        let cutoff = CACurrentMediaTime() - (bounds.width + 100) / speed
+        let cutoff = CACurrentMediaTime() - (bounds.width + 50) / speed
         while let first = bars.first, first.time < cutoff {
             first.layer.removeFromSuperlayer()
             bars.removeFirst()
@@ -92,7 +103,7 @@ final class AudioWaveView: NSView {
         let h = max(CGFloat(bar.level / peak) * bounds.height, minHeight)
         bar.layer.path = CGPath(roundedRect: CGRect(x: bar.x, y: (bounds.height - h) / 2, width: barWidth, height: h),
                                 cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
-        bar.layer.fillColor = (h < barWidth ? NSColor.secondaryLabelColor.withAlphaComponent(0.2) : NSColor.controlAccentColor).cgColor
+        bar.layer.fillColor = NSColor.controlAccentColor.cgColor
     }
 
     func addLevel(_ level: Float) {
