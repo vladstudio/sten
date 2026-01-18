@@ -42,7 +42,9 @@ curl -sL "$DOWNLOAD_URL" -o "$TMP_DIR/$APP_NAME.zip"
 info "Installing to $INSTALL_DIR..."
 unzip -q "$TMP_DIR/$APP_NAME.zip" -d "$TMP_DIR"
 
-# Remove old version if exists
+# Quit running app and remove old version
+pkill -x "$APP_NAME" 2>/dev/null || true
+sleep 0.5
 [[ -d "$INSTALL_DIR/$APP_NAME.app" ]] && rm -rf "$INSTALL_DIR/$APP_NAME.app"
 
 mv "$TMP_DIR/$APP_NAME.app" "$INSTALL_DIR/"

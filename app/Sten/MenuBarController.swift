@@ -168,6 +168,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let about = NSMenuItem(title: "About Sten", action: #selector(openAbout), keyEquivalent: "")
         about.target = self
         menu.addItem(about)
+        let update = NSMenuItem(title: "Check for Updates...", action: #selector(checkUpdate), keyEquivalent: "")
+        update.target = self
+        menu.addItem(update)
         if settings.onboardingDone, let size = modelSizeMB() {
             let del = NSMenuItem(title: "Delete model (\(size) MB) and quit", action: #selector(deleteModelAction), keyEquivalent: "")
             del.target = self
@@ -183,6 +186,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func cancelAction() { onCancel?() }
     @objc private func toggleLogin() { settings.startOnLogin.toggle(); updateMenu() }
     @objc private func openAbout() { if let url = URL(string: "https://sten.vlad.studio") { NSWorkspace.shared.open(url) } }
+    @objc private func checkUpdate() { UpdateChecker.checkOnLaunch() }
 
     static let transformsDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".sten/transforms")
 
