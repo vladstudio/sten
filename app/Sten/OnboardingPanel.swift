@@ -15,7 +15,7 @@ final class OnboardingPanel: NSPanel {
     var loadModel: ((@escaping (Bool) -> Void) -> Void)?
 
     init() {
-        super.init(contentRect: NSRect(x: 0, y: 0, width: 340, height: 280), styleMask: [.titled], backing: .buffered, defer: false)
+        super.init(contentRect: NSRect(x: 0, y: 0, width: 340, height: 280), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         title = "Welcome to Sten"; isFloatingPanel = true; level = .floating; hidesOnDeactivate = false
 
         let icon = NSImageView()
@@ -163,5 +163,5 @@ final class OnboardingPanel: NSPanel {
     }
 
     override var canBecomeKey: Bool { true }
-    override func close() { checkTimer?.invalidate(); super.close() }
+    override func close() { checkTimer?.invalidate(); super.close(); if !Settings.shared.onboardingDone { NSApp.terminate(nil) } }
 }

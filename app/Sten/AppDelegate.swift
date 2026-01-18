@@ -136,7 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         listeningPanel?.makeKeyAndOrderFront(nil)
     }
 
-    private func closeListeningPanel() { listeningPanel?.close(); listeningPanel = nil; recorder.onLevel = nil }
+    private func closeListeningPanel() { let p = listeningPanel; listeningPanel = nil; recorder.onLevel = nil; p?.close() }
 
     private func stopListening() {
         closeListeningPanel()
