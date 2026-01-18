@@ -79,7 +79,7 @@ final class OnboardingPanel: NSPanel {
                 }
             }
         case .transforms:
-            label.stringValue = "Text Transforms can refine your transcriptions—fix grammar, spelling, or apply custom rules.\n\nCreate a grammar-fixing transform powered by Gemini AI?"
+            label.stringValue = "Text Transforms can fix grammar, spelling, or apply custom rules.\nCreate a grammar-fixing transform powered by Gemini AI?\n\nGemini API key is required."
             button.title = "Create Text Transform"
             secondaryButton.title = "Skip"
             secondaryButton.isHidden = false
