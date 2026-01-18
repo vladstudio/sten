@@ -111,7 +111,7 @@ final class OnboardingPanel: NSPanel {
 
     private func createTransformScript() {
         if let key = ProcessInfo.processInfo.environment["GEMINI_API_KEY"], !key.isEmpty {
-            writeTransformScript(apiKey: nil); step = .done
+            writeTransformScript(apiKey: key); step = .done
         } else { promptForApiKey() }
     }
 

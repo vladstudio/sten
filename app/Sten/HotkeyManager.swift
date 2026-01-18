@@ -21,7 +21,8 @@ final class HotkeyManager {
         let isModifierKey = Self.modifierKeys.contains(keyCode)
 
         let cb: CGEventTapCallBack = { _, type, event, info in
-            let mgr = Unmanaged<HotkeyManager>.fromOpaque(info!).takeUnretainedValue()
+            guard let info else { return Unmanaged.passUnretained(event) }
+            let mgr = Unmanaged<HotkeyManager>.fromOpaque(info).takeUnretainedValue()
             let code = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
             guard code == mgr.keyCode else { return Unmanaged.passUnretained(event) }
 

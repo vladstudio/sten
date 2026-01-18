@@ -12,8 +12,9 @@ final class ListeningPanel: NSPanel {
 
         let transcribe = NSButton(title: "Transcribe", target: self, action: #selector(doTranscribe)); transcribe.bezelStyle = .rounded; transcribe.keyEquivalent = "\r"
         let stack = NSStackView(views: [waveView, transcribe]); stack.spacing = 12; stack.translatesAutoresizingMaskIntoConstraints = false; stack.alignment = .centerY
-        contentView?.addSubview(stack)
-        NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: contentView!.leadingAnchor, constant: 12), stack.trailingAnchor.constraint(equalTo: contentView!.trailingAnchor, constant: -12), stack.centerYAnchor.constraint(equalTo: contentView!.centerYAnchor)])
+        guard let content = contentView else { return }
+        content.addSubview(stack)
+        NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 12), stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -12), stack.centerYAnchor.constraint(equalTo: content.centerYAnchor)])
     }
 
     private var isTranscribing = false

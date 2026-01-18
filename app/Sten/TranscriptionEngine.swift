@@ -9,8 +9,9 @@ final class TranscriptionEngine {
         do {
             models = try await AsrModels.downloadAndLoad(version: .v3)
             guard let m = models else { return false }
-            manager = AsrManager(config: .default)
-            try await manager?.initialize(models: m)
+            let mgr = AsrManager(config: .default)
+            try await mgr.initialize(models: m)
+            manager = mgr
             isReady = true
             return true
         } catch { return false }

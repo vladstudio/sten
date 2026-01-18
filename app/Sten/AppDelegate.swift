@@ -166,7 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showNotification("Transcription", text)
             return
         }
-        TextInjector.inject(text)
+        if !TextInjector.inject(text) { showNotification("Transcription", text) }
     }
 
     private func applyTransforms(_ text: String) -> String {
