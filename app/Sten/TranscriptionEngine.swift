@@ -3,7 +3,7 @@ import FluidAudio
 final class TranscriptionEngine {
     private var models: AsrModels?
     private var manager: AsrManager?
-    var isReady: Bool { manager != nil }
+    private(set) var isReady = false
 
     func load() async -> Bool {
         do {
@@ -11,6 +11,7 @@ final class TranscriptionEngine {
             guard let m = models else { return false }
             manager = AsrManager(config: .default)
             try await manager?.initialize(models: m)
+            isReady = true
             return true
         } catch { return false }
     }
@@ -29,6 +30,7 @@ final class TranscriptionEngine {
     }
 
     func unload() {
+        isReady = false
         manager = nil
         models = nil
     }
