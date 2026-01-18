@@ -1,42 +1,122 @@
 import AppKit
+import QuartzCore
 
 final class AudioWaveView: NSView {
-    private var levels: [Float] = Array(repeating: 0, count: 41)
-    private var display: [CGFloat] = Array(repeating: 0, count: 41) // animated normalized heights
-    private var scrollOffset: CGFloat = 0
-    private var timer: Timer?
-    private let barWidth: CGFloat = 3, gap: CGFloat = 2
-
-    func addLevel(_ level: Float) { levels.append(level); display.append(0); startAnimating() }
-
-    private func startAnimating() {
-        guard timer == nil else { return }
-        timer = Timer(timeInterval: 1.0/60, repeats: true) { [weak self] _ in self?.tick() }
-        RunLoop.main.add(timer!, forMode: .common)
+    private struct Bar {
+        let layer: CAShapeLayer
+        let level: Float
+        let x: CGFloat
+        let time: CFTimeInterval
     }
 
-    private func tick() {
-        scrollOffset += (barWidth + gap) / 5
-        while scrollOffset >= barWidth + gap && levels.count > 40 {
-            scrollOffset -= barWidth + gap; levels.removeFirst(); display.removeFirst()
+    private let barWidth: CGFloat = 3
+    private let speed: CGFloat = 25
+    private let scrollDistance: CGFloat = 10000
+    private let minPeak: Float = 0.001
+    private let minHeight: CGFloat = 2
+    private let cornerRadius: CGFloat = 1.5
+
+    private var container: CALayer?
+    private var bars: [Bar] = []
+    private var peak: Float = 0.001
+    private var animationStart: CFTimeInterval = 0
+    private var updateTimer: Timer?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        wantsLayer = true
+    }
+
+    override func layout() {
+        super.layout()
+        guard bounds.height > 0, container == nil else { return }
+
+        // Gradient mask for left fade
+        let mask = CAGradientLayer()
+        mask.frame = bounds
+        mask.colors = [CGColor(gray: 0, alpha: 0), CGColor(gray: 0, alpha: 1)]
+        mask.locations = [0, 0.4]
+        mask.startPoint = CGPoint(x: 0, y: 0.5)
+        mask.endPoint = CGPoint(x: 1, y: 0.5)
+        layer?.mask = mask
+
+        // Background center line
+        let line = CAShapeLayer()
+        line.path = CGPath(rect: CGRect(x: 0, y: bounds.midY - 0.5, width: bounds.width, height: 1), transform: nil)
+        line.fillColor = NSColor.secondaryLabelColor.withAlphaComponent(0.2).cgColor
+        layer?.addSublayer(line)
+
+        // Scrolling container
+        let c = CALayer()
+        c.anchorPoint = .zero
+        c.position = .zero
+        c.bounds = CGRect(x: 0, y: 0, width: scrollDistance, height: bounds.height)
+        layer?.masksToBounds = true
+        layer?.addSublayer(c)
+        container = c
+        animationStart = CACurrentMediaTime()
+
+        let anim = CABasicAnimation(keyPath: "position.x")
+        anim.fromValue = 0
+        anim.toValue = -scrollDistance
+        anim.duration = scrollDistance / speed
+        anim.repeatCount = .infinity
+        c.add(anim, forKey: "scroll")
+
+        updateTimer = Timer(timeInterval: 1.0/30, repeats: true) { [weak self] _ in self?.updateBars() }
+        RunLoop.main.add(updateTimer!, forMode: .common)
+    }
+
+    private func updateBars() {
+        peak = max(peak * 0.95, minPeak)
+        peak = max(peak, bars.map(\.level).max() ?? minPeak)
+
+        for bar in bars {
+            updateBarAppearance(bar)
         }
-        if levels.count <= 40 { timer?.invalidate(); timer = nil; scrollOffset = 0 }
-        let peak = max(levels.max() ?? 0, 0.001)
-        for i in levels.indices { display[i] += (CGFloat(levels[i] / peak) - display[i]) * 0.25 }
-        needsDisplay = true
-    }
 
-    override func draw(_ dirtyRect: NSRect) {
-        let mid = bounds.midY
-        for (i, d) in display.enumerated() {
-            let x = CGFloat(i) * (barWidth + gap) - scrollOffset
-            guard x > -barWidth && x < bounds.width else { continue }
-            let h = max(d * bounds.height, 2)
-            (h < barWidth ? NSColor.secondaryLabelColor.withAlphaComponent(0.2) : NSColor.controlAccentColor).setFill()
-            NSBezierPath(roundedRect: NSRect(x: x, y: mid - h / 2, width: barWidth, height: h), xRadius: 2, yRadius: 2).fill()
+        // Clean up old bars
+        let cutoff = CACurrentMediaTime() - (bounds.width + 100) / speed
+        while let first = bars.first, first.time < cutoff {
+            first.layer.removeFromSuperlayer()
+            bars.removeFirst()
         }
     }
 
-    override func removeFromSuperview() { timer?.invalidate(); super.removeFromSuperview() }
-    override var intrinsicContentSize: NSSize { NSSize(width: 40 * 5, height: 28) }
+    private func updateBarAppearance(_ bar: Bar) {
+        let h = max(CGFloat(bar.level / peak) * bounds.height, minHeight)
+        bar.layer.path = CGPath(roundedRect: CGRect(x: bar.x, y: (bounds.height - h) / 2, width: barWidth, height: h),
+                                cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+        bar.layer.fillColor = (h < barWidth ? NSColor.secondaryLabelColor.withAlphaComponent(0.2) : NSColor.controlAccentColor).cgColor
+    }
+
+    func addLevel(_ level: Float) {
+        guard let container, bounds.height > 0 else { return }
+
+        peak = max(peak, level, minPeak)
+
+        let elapsed = CACurrentMediaTime() - animationStart
+        let scrolled = CGFloat(elapsed.truncatingRemainder(dividingBy: scrollDistance / speed)) * speed
+        let x = bounds.width + scrolled
+
+        let layer = CAShapeLayer()
+        container.addSublayer(layer)
+
+        let bar = Bar(layer: layer, level: level, x: x, time: CACurrentMediaTime())
+        bars.append(bar)
+        updateBarAppearance(bar)
+    }
+
+    override func removeFromSuperview() {
+        container?.removeAllAnimations()
+        updateTimer?.invalidate()
+        super.removeFromSuperview()
+    }
+
+    override var intrinsicContentSize: NSSize { NSSize(width: 200, height: 28) }
 }
