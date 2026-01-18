@@ -6,7 +6,15 @@ A lightweight macOS menu bar app for voice-to-text transcription. Press a hotkey
 
 **Privacy-first**: All transcription runs on-device using [FluidAudio](https://github.com/FluidInference/FluidAudio).
 
-## Requirements
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vladstudio/sten/main/install.sh | bash
+```
+
+This downloads the latest release, installs to `/Applications`, and opens the app.
+
+### Requirements
 
 - macOS 14 (Sonoma) or later
 - Microphone permission
