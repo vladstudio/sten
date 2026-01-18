@@ -28,7 +28,7 @@ enum UpdateChecker {
     static func promptUpdate(_ version: String) {
         let alert = NSAlert()
         alert.messageText = "Update Available"
-        alert.informativeText = "Sten \(version) is available."
+        alert.informativeText = "Sten \(version) is ready to download and install."
         alert.addButton(withTitle: "Update")
         alert.addButton(withTitle: "Later")
         if alert.runModal() == .alertFirstButtonReturn { runUpdate() }
