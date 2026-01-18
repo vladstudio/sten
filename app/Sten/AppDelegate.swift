@@ -31,7 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showOnboarding() {
         onboarding = OnboardingPanel()
         onboarding?.loadModel = { [weak self] done in
-            Task {
+            Task { [weak self] in
                 let ok = await self?.engine.load() ?? false
                 await MainActor.run { done(ok) }
             }
