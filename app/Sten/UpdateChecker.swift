@@ -36,7 +36,8 @@ enum UpdateChecker {
 
     static func runUpdate() {
         let script = "curl -fsSL https://raw.githubusercontent.com/\(repo)/main/install.sh | bash"
-        NSAppleScript(source: "tell app \"Terminal\" to do script \"\(script)\"")?.executeAndReturnError(nil)
-        NSApp.terminate(nil)
+        let osa = "tell app \"Terminal\" to do script \"\(script)\""
+        Process.launchedProcess(launchPath: "/usr/bin/osascript", arguments: ["-e", osa])
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
     }
 }
