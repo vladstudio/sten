@@ -136,7 +136,8 @@ final class OnboardingPanel: NSPanel {
     }
 
     private func writeTransformScript(apiKey: String?) {
-        let keyLine = apiKey.map { "api_key = \"\($0)\"" } ?? "api_key = ENV['GEMINI_API_KEY']"
+        let sanitizedKey = apiKey?.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        let keyLine = sanitizedKey.map { "api_key = \"\($0)\"" } ?? "api_key = ENV['GEMINI_API_KEY']"
         let script = """
         #!/usr/bin/env ruby
         require 'json'; require 'net/http'; require 'uri'
@@ -151,10 +152,16 @@ final class OnboardingPanel: NSPanel {
         result = JSON.parse(response.body).dig('candidates', 0, 'content', 'parts', 0, 'text') rescue nil
         puts result || text
         """
-        try? FileManager.default.createDirectory(at: MenuBarController.transformsDir, withIntermediateDirectories: true)
-        try? script.write(to: Self.transformScript, atomically: true, encoding: .utf8)
-        try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: Self.transformScript.path)
-        Settings.shared.enabledTransforms.insert("01 Grammar and Custom Words.rb")
+        do {
+            try FileManager.default.createDirectory(at: MenuBarController.transformsDir, withIntermediateDirectories: true)
+            try script.write(to: Self.transformScript, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: Self.transformScript.path)
+            var enabled = Settings.shared.enabledTransforms
+            enabled.insert("01 Grammar and Custom Words.rb")
+            Settings.shared.enabledTransforms = enabled
+        } catch {
+            // Script creation failed - don't enable a non-existent transform
+        }
     }
 
     // Poll condition until true, then call callback
@@ -163,7 +170,7 @@ final class OnboardingPanel: NSPanel {
         checkTimer = Timer(timeInterval: 0.5, repeats: true) { [weak self] t in
             if check() { t.invalidate(); self?.checkTimer = nil; then() }
         }
-        RunLoop.main.add(checkTimer!, forMode: .common)
+        if let timer = checkTimer { RunLoop.main.add(timer, forMode: .common) }
     }
 
     override var canBecomeKey: Bool { true }

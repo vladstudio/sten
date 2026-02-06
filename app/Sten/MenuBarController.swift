@@ -29,8 +29,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     // Populate transforms submenu when opened
     func menuWillOpen(_ menu: NSMenu) {
         guard menu.title == "transforms" else { return }
+        try? FileManager.default.createDirectory(at: Self.transformsDir, withIntermediateDirectories: true)
         let scripts = Set((try? FileManager.default.contentsOfDirectory(atPath: Self.transformsDir.path))?.filter { !$0.hasPrefix(".") } ?? [])
-        settings.enabledTransforms = settings.enabledTransforms.intersection(scripts)
         menu.items.filter { $0.action == #selector(toggleTransform(_:)) }.forEach { menu.removeItem($0) }
         for name in scripts.sorted() {
             let mi = NSMenuItem(title: name, action: #selector(toggleTransform(_:)), keyEquivalent: "")
@@ -64,8 +64,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         updateMenu()
     }
 
+    private var appDelegate: AppDelegate? { NSApp.delegate as? AppDelegate }
+
     @objc private func grantPermissions() {
-        (NSApp.delegate as? AppDelegate)?.grantPermissions()
+        appDelegate?.grantPermissions()
     }
 
     private func loadIcon(_ name: String) -> NSImage? {
@@ -187,7 +189,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(del)
         }
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-        menu.delegate = self
         statusItem.menu = menu
     }
 
@@ -241,7 +242,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         confirmPanel = ConfirmPanel(message: "Delete the speech model and quit?\nYou can re-download it later.", confirmTitle: "Delete and Quit")
         confirmPanel?.onConfirm = {
             Settings.shared.onboardingDone = false
-            (NSApp.delegate as? AppDelegate)?.deleteModelAndQuit()
+            self.appDelegate?.deleteModelAndQuit()
         }
         confirmPanel?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
