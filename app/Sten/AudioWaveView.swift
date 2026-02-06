@@ -12,7 +12,6 @@ final class AudioWaveView: NSView {
     }
 
     private let barWidth: CGFloat = 3
-    private let gap: CGFloat = 2                 // Spacing between bars
     private let speed: CGFloat = 25              // Scroll speed in pixels/sec
     private let scrollDistance: CGFloat = 10000  // Virtual container width
     private let minPeak: Float = 0.001
@@ -120,9 +119,6 @@ final class AudioWaveView: NSView {
         let elapsed = CACurrentMediaTime() - animationStart
         let scrolled = CGFloat(elapsed.truncatingRemainder(dividingBy: scrollDistance / speed)) * speed
         let x = bounds.width + scrolled
-
-        // Skip if too close to previous bar
-        if let last = bars.last, x - last.x < barWidth + gap { return }
 
         let layer = CAShapeLayer()
         container.addSublayer(layer)
