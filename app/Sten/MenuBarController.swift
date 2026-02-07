@@ -26,16 +26,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         updateMenu()
     }
 
-    // Populate transforms submenu when opened
+    // Populate transform items in main menu when opened
     func menuWillOpen(_ menu: NSMenu) {
-        guard menu.title == "transforms" else { return }
-        try? FileManager.default.createDirectory(at: Self.transformsDir, withIntermediateDirectories: true)
-        let scripts = Set((try? FileManager.default.contentsOfDirectory(atPath: Self.transformsDir.path))?.filter { !$0.hasPrefix(".") } ?? [])
         menu.items.filter { $0.action == #selector(toggleTransform(_:)) }.forEach { menu.removeItem($0) }
-        for name in scripts.sorted() {
+        guard let folderIndex = menu.items.firstIndex(where: { $0.tag == 999 }) else { return }
+        let scripts = Set((try? FileManager.default.contentsOfDirectory(atPath: Self.transformsDir.path))?.filter { !$0.hasPrefix(".") } ?? [])
+        for (i, name) in scripts.sorted().enumerated() {
             let mi = NSMenuItem(title: name, action: #selector(toggleTransform(_:)), keyEquivalent: "")
             mi.target = self; mi.state = settings.enabledTransforms.contains(name) ? .on : .off
-            menu.insertItem(mi, at: menu.items.firstIndex { $0.isSeparatorItem } ?? 0)
+            menu.insertItem(mi, at: folderIndex + i)
         }
     }
 
@@ -175,7 +174,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         loginItem.target = self
         loginItem.state = settings.startOnLogin ? .on : .off
         menu.addItem(loginItem)
-        menu.addItem(buildTransformsMenu())
+        menu.addItem(.separator())
+        let openFolder = NSMenuItem(title: "Open transforms folder", action: #selector(openTransformsFolder), keyEquivalent: "")
+        openFolder.target = self; openFolder.tag = 999
+        menu.addItem(openFolder)
         menu.addItem(.separator())
         let about = NSMenuItem(title: "About Sten", action: #selector(openAbout), keyEquivalent: "")
         about.target = self
@@ -189,6 +191,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(del)
         }
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.delegate = self
         statusItem.menu = menu
     }
 
@@ -199,19 +202,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func openAbout() { if let url = URL(string: "https://sten.vlad.studio") { NSWorkspace.shared.open(url) } }
     @objc private func checkUpdate() { UpdateChecker.check(manual: true) }
 
-    static let transformsDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".sten/transforms")
-
-    private func buildTransformsMenu() -> NSMenuItem {
-        let item = NSMenuItem(title: "Text transforms", action: nil, keyEquivalent: "")
-        let sub = NSMenu(title: "transforms")
-        sub.delegate = self
-        sub.addItem(.separator())
-        let open = NSMenuItem(title: "Open transforms folder", action: #selector(openTransformsFolder), keyEquivalent: "")
-        open.target = self
-        sub.addItem(open)
-        item.submenu = sub
-        return item
-    }
+    static let transformsDir = Settings.stenDir.appendingPathComponent("transforms")
 
     @objc private func toggleTransform(_ sender: NSMenuItem) {
         var enabled = settings.enabledTransforms

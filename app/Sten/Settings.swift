@@ -1,4 +1,4 @@
-// Persistent user preferences stored in UserDefaults
+// Persistent user preferences (UserDefaults + file-based onboarding state)
 import Foundation
 import ServiceManagement
 
@@ -23,9 +23,20 @@ final class Settings {
         set { defaults.set(Int(newValue), forKey: "hkMods"); defaults.set(true, forKey: "hkSet") }
     }
 
+    static let stenDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".sten")
+
+    private static let doneMarker = stenDir.appendingPathComponent(".setup-done")
+
     var onboardingDone: Bool {
-        get { defaults.bool(forKey: "onboardingDone") }
-        set { defaults.set(newValue, forKey: "onboardingDone") }
+        get { FileManager.default.fileExists(atPath: Self.doneMarker.path) }
+        set {
+            if newValue {
+                try? FileManager.default.createDirectory(at: Self.stenDir, withIntermediateDirectories: true)
+                FileManager.default.createFile(atPath: Self.doneMarker.path, contents: nil)
+            } else {
+                try? FileManager.default.removeItem(at: Self.doneMarker)
+            }
+        }
     }
 
     // Set of enabled transform script names

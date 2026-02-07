@@ -8,12 +8,21 @@ final class OnboardingPanel: NSPanel {
     private let label = NSTextField(wrappingLabelWithString: "")
     private let button = NSButton(title: "", target: nil, action: nil)
     private let secondaryButton = NSButton(title: "", target: nil, action: nil)
+    private let providerPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private var step: Step = .welcome { didSet { updateUI() } }
     private var checkTimer: Timer?
     var onComplete: (() -> Void)?
     var onChangeHotkey: (() -> Void)?
     var onCancel: (() -> Void)?
     var loadModel: ((@escaping (Bool) -> Void) -> Void)?
+
+    private static let providers: [(name: String, configKey: String, envKey: String, keyURL: String)] = [
+        ("Gemini", "gemini_api_key", "GEMINI_API_KEY", "https://aistudio.google.com/app/apikey"),
+        ("OpenAI", "openai_api_key", "OPENAI_API_KEY", "https://platform.openai.com/api-keys"),
+        ("Anthropic", "anthropic_api_key", "ANTHROPIC_API_KEY", "https://console.anthropic.com/settings/keys"),
+    ]
+    private static let configFile = Settings.stenDir.appendingPathComponent("config.json")
+    private static let transformScript = MenuBarController.transformsDir.appendingPathComponent("01 Grammar and Custom Words.rb")
 
     init() {
         super.init(contentRect: NSRect(x: 0, y: 0, width: 340, height: 280), styleMask: [.titled, .closable], backing: .buffered, defer: false)
@@ -28,9 +37,10 @@ final class OnboardingPanel: NSPanel {
         label.font = .systemFont(ofSize: 13); label.alignment = .center
         button.bezelStyle = .rounded; button.target = self; button.action = #selector(primaryAction)
         secondaryButton.bezelStyle = .rounded; secondaryButton.target = self; secondaryButton.action = #selector(secondaryAction); secondaryButton.isHidden = true
+        providerPopup.addItems(withTitles: Self.providers.map(\.name)); providerPopup.isHidden = true
 
         let btnRow = NSStackView(views: [secondaryButton, button]); btnRow.spacing = 8
-        let stack = NSStackView(views: [icon, label, btnRow])
+        let stack = NSStackView(views: [icon, label, providerPopup, btnRow])
         stack.orientation = .vertical; stack.alignment = .centerX; stack.spacing = 16; stack.translatesAutoresizingMaskIntoConstraints = false
 
         let container = NSView(); container.addSubview(stack)
@@ -39,8 +49,6 @@ final class OnboardingPanel: NSPanel {
     }
 
     func start() { step = .welcome }
-
-    private static let transformScript = MenuBarController.transformsDir.appendingPathComponent("01 Grammar and Custom Words.rb")
 
     // Determine next step based on what's still needed
     private func nextStep() {
@@ -54,6 +62,7 @@ final class OnboardingPanel: NSPanel {
     private func updateUI() {
         checkTimer?.invalidate()
         secondaryButton.isHidden = true
+        providerPopup.isHidden = true
         button.isEnabled = true
         switch step {
         case .welcome:
@@ -81,7 +90,8 @@ final class OnboardingPanel: NSPanel {
                 }
             }
         case .transforms:
-            label.stringValue = "Text Transforms can fix grammar, spelling, or apply custom rules.\nCreate a grammar-fixing transform powered by Gemini AI?\n\nGemini API key is required."
+            label.stringValue = "Text Transforms can fix grammar, spelling, or apply custom rules.\nSelect your LLM provider to create a grammar transform."
+            providerPopup.isHidden = false
             button.title = "Create Text Transform"
             secondaryButton.title = "Skip"
             secondaryButton.isHidden = false
@@ -111,17 +121,18 @@ final class OnboardingPanel: NSPanel {
         if step == .model { onCancel?() } else if step == .transforms { step = .done } else { onChangeHotkey?() }
     }
 
-    // Create default Gemini-powered grammar transform script
     private func createTransformScript() {
-        if let key = ProcessInfo.processInfo.environment["GEMINI_API_KEY"], !key.isEmpty {
-            writeTransformScript(apiKey: key); step = .done
-        } else { promptForApiKey() }
+        let idx = providerPopup.indexOfSelectedItem
+        if let key = ProcessInfo.processInfo.environment[Self.providers[idx].envKey], !key.isEmpty {
+            saveApiKey(key, provider: idx); writeTransformScript(provider: idx); step = .done
+        } else { promptForApiKey(provider: idx) }
     }
 
-    private func promptForApiKey() {
+    private func promptForApiKey(provider idx: Int) {
+        let p = Self.providers[idx]
         let alert = NSAlert()
-        alert.messageText = "Enter Gemini API Key"
-        alert.informativeText = "Get your free API key at:\nhttps://aistudio.google.com/app/apikey"
+        alert.messageText = "Enter \(p.name) API Key"
+        alert.informativeText = "Get your API key at:\n\(p.keyURL)"
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
         field.placeholderString = "API Key"
         alert.accessoryView = field
@@ -129,27 +140,56 @@ final class OnboardingPanel: NSPanel {
         alert.addButton(withTitle: "Cancel")
         alert.beginSheetModal(for: self) { [weak self] response in
             if response == .alertFirstButtonReturn, !field.stringValue.isEmpty {
-                self?.writeTransformScript(apiKey: field.stringValue)
+                self?.saveApiKey(field.stringValue, provider: idx)
+                self?.writeTransformScript(provider: idx)
             }
             self?.step = .done
         }
     }
 
-    private func writeTransformScript(apiKey: String?) {
-        let sanitizedKey = apiKey?.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
-        let keyLine = sanitizedKey.map { "api_key = \"\($0)\"" } ?? "api_key = ENV['GEMINI_API_KEY']"
+    private func saveApiKey(_ key: String, provider idx: Int) {
+        let url = Self.configFile
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        var config: [String: String] = [:]
+        if let data = try? Data(contentsOf: url), let json = try? JSONSerialization.jsonObject(with: data) as? [String: String] { config = json }
+        config[Self.providers[idx].configKey] = key
+        if let data = try? JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys]) {
+            try? data.write(to: url)
+        }
+    }
+
+    private func writeTransformScript(provider idx: Int) {
+        let p = Self.providers[idx]
+        let apiCall: String
+        switch idx {
+        case 0: apiCall = """
+            uri = URI("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=#{api_key}")
+            response = Net::HTTP.post(uri, { contents: [{ parts: [{ text: PROMPT + text }] }] }.to_json, 'Content-Type' => 'application/json')
+            result = JSON.parse(response.body).dig('candidates', 0, 'content', 'parts', 0, 'text') rescue nil
+            """
+        case 1: apiCall = """
+            uri = URI("https://api.openai.com/v1/chat/completions")
+            response = Net::HTTP.post(uri, { model: 'gpt-4o-mini', messages: [{ role: 'user', content: PROMPT + text }] }.to_json, 'Content-Type' => 'application/json', 'Authorization' => "Bearer #{api_key}")
+            result = JSON.parse(response.body).dig('choices', 0, 'message', 'content') rescue nil
+            """
+        case 2: apiCall = """
+            uri = URI("https://api.anthropic.com/v1/messages")
+            response = Net::HTTP.post(uri, { model: 'claude-haiku-4-5-20251001', max_tokens: 1024, messages: [{ role: 'user', content: PROMPT + text }] }.to_json, 'Content-Type' => 'application/json', 'x-api-key' => api_key, 'anthropic-version' => '2023-06-01')
+            result = JSON.parse(response.body).dig('content', 0, 'text') rescue nil
+            """
+        default: assertionFailure("Unknown provider index: \(idx)"); return
+        }
         let script = """
         #!/usr/bin/env ruby
         require 'json'; require 'net/http'; require 'uri'
         CUSTOM_WORDS = "Sten"
         PROMPT = "You are given a speech-to-text transcription. Correct grammar, spelling, and misrecognized words based on context. Correct these special words or their misspellings to exact spellings: #{CUSTOM_WORDS}. OUTPUT ONLY THE CORRECTED TEXT. Transcription: "
-        \(keyLine)
+        config = JSON.parse(File.read(File.join(Dir.home, '.sten', 'config.json'))) rescue {}
+        api_key = config['\(p.configKey)'] || ENV['\(p.envKey)']
         text = STDIN.read
         exit 1 if text.empty?
-        (puts text; exit 0) if api_key.nil? || api_key.empty?
-        uri = URI("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=#{api_key}")
-        response = Net::HTTP.post(uri, { contents: [{ parts: [{ text: PROMPT + text }] }] }.to_json, 'Content-Type' => 'application/json')
-        result = JSON.parse(response.body).dig('candidates', 0, 'content', 'parts', 0, 'text') rescue nil
+        (puts text; exit 0) if api_key.to_s.empty?
+        \(apiCall)
         puts result || text
         """
         do {
@@ -159,9 +199,7 @@ final class OnboardingPanel: NSPanel {
             var enabled = Settings.shared.enabledTransforms
             enabled.insert("01 Grammar and Custom Words.rb")
             Settings.shared.enabledTransforms = enabled
-        } catch {
-            // Script creation failed - don't enable a non-existent transform
-        }
+        } catch {}
     }
 
     // Poll condition until true, then call callback
