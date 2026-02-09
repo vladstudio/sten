@@ -11,18 +11,22 @@ final class AudioWaveView: NSView {
         let time: CFTimeInterval
     }
 
-    private let barWidth: CGFloat = 3
+    private let barWidth: CGFloat = 2
+    private let barGap: CGFloat = 2
     private let speed: CGFloat = 25              // Scroll speed in pixels/sec
     private let scrollDistance: CGFloat = 10000  // Virtual container width
     private let minPeak: Float = 0.001
     private let minHeight: CGFloat = 2
-    private let cornerRadius: CGFloat = 1.5
 
     private var container: CALayer?
+    private var lastBarX: CGFloat = -.greatestFiniteMagnitude
     private var bars: [Bar] = []
     private var peak: Float = 0.001
     private var animationStart: CFTimeInterval = 0
     private var updateTimer: Timer?
+    private var latestLevel: Float = 0
+    private var levelFresh = false
+    private var receiving = false
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -49,8 +53,8 @@ final class AudioWaveView: NSView {
 
         // Static center line
         let line = CAShapeLayer()
-        line.path = CGPath(rect: CGRect(x: 0, y: bounds.midY - 0.5, width: bounds.width, height: 1), transform: nil)
-        line.fillColor = NSColor.secondaryLabelColor.withAlphaComponent(0.2).cgColor
+        line.path = CGPath(rect: CGRect(x: 0, y: bounds.midY - 1, width: bounds.width, height: 2), transform: nil)
+        line.fillColor = NSColor(red: 0, green: 0, blue: 0, alpha: 0x44 / 255.0).cgColor
         layer?.addSublayer(line)
 
         // Container layer scrolls infinitely via CABasicAnimation
@@ -100,32 +104,35 @@ final class AudioWaveView: NSView {
             first.layer.removeFromSuperlayer()
             bars.removeFirst()
         }
+
+        // Place new bars at consistent intervals driven by scroll position
+        guard receiving, let container else { return }
+        let x = bounds.width + scrollOffset
+        if x - lastBarX >= barWidth + barGap {
+            let level = levelFresh ? latestLevel : 0
+            levelFresh = false
+            peak = max(peak, level, minPeak)
+            lastBarX = x
+
+            let layer = CAShapeLayer()
+            container.addSublayer(layer)
+            let bar = Bar(layer: layer, level: level, x: x, time: CACurrentMediaTime())
+            bars.append(bar)
+            updateBarAppearance(bar)
+        }
     }
 
     private func updateBarAppearance(_ bar: Bar) {
         let h = max(CGFloat(bar.level / peak) * bounds.height, minHeight)
-        bar.layer.path = CGPath(roundedRect: CGRect(x: bar.x, y: (bounds.height - h) / 2, width: barWidth, height: h),
-                                cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+        bar.layer.path = CGPath(rect: CGRect(x: bar.x, y: (bounds.height - h) / 2, width: barWidth, height: h), transform: nil)
         bar.layer.fillColor = NSColor.controlAccentColor.cgColor
     }
 
     // Called by AudioRecorder with RMS level for each audio buffer
     func addLevel(_ level: Float) {
-        guard let container, bounds.height > 0 else { return }
-
-        peak = max(peak, level, minPeak)
-
-        // Position bar at right edge of visible area (accounting for scroll)
-        let elapsed = CACurrentMediaTime() - animationStart
-        let scrolled = CGFloat(elapsed.truncatingRemainder(dividingBy: scrollDistance / speed)) * speed
-        let x = bounds.width + scrolled
-
-        let layer = CAShapeLayer()
-        container.addSublayer(layer)
-
-        let bar = Bar(layer: layer, level: level, x: x, time: CACurrentMediaTime())
-        bars.append(bar)
-        updateBarAppearance(bar)
+        latestLevel = level
+        levelFresh = true
+        receiving = true
     }
 
     override func removeFromSuperview() {
