@@ -209,6 +209,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for script in scripts {
             let proc = Process()
             proc.executableURL = script
+            proc.environment = ["LANG": "en_US.UTF-8"]
             let stdin = Pipe(), stdout = Pipe()
             proc.standardInput = stdin
             proc.standardOutput = stdout
