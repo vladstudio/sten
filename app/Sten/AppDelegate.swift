@@ -209,19 +209,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for script in scripts {
             let proc = Process()
             proc.executableURL = script
-            proc.environment = ["LANG": "en_US.UTF-8"]
+            var env = ProcessInfo.processInfo.environment
+            env["LANG"] = "en_US.UTF-8"
+            proc.environment = env
             let stdin = Pipe(), stdout = Pipe()
             proc.standardInput = stdin
             proc.standardOutput = stdout
             proc.standardError = FileHandle.nullDevice
-            defer {
-                try? stdin.fileHandleForWriting.close()
-                try? stdout.fileHandleForReading.close()
-            }
+            defer { try? stdout.fileHandleForReading.close() }
             do {
                 try proc.run()
                 stdin.fileHandleForWriting.write(result.data(using: .utf8) ?? Data())
-                stdin.fileHandleForWriting.closeFile()
+                try stdin.fileHandleForWriting.close()
+
+                // Read stdout before waitUntilExit to avoid pipe buffer deadlock
+                let outData = stdout.fileHandleForReading.readDataToEndOfFile()
 
                 // Timeout prevents hanging on slow scripts
                 let deadline = DispatchTime.now() + Self.transformTimeoutSeconds
@@ -230,7 +232,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 proc.waitUntilExit()
 
-                let outData = stdout.fileHandleForReading.readDataToEndOfFile()
                 if proc.terminationStatus == 0, let out = String(data: outData, encoding: .utf8), !out.isEmpty {
                     result = out.trimmingCharacters(in: .newlines)
                 }
