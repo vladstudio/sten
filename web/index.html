@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sten — Voice to Text for Mac</title>
+  <meta name="description" content="Press a hotkey, speak, and your words appear. Private, on-device transcription for macOS. Free and open source.">
+  <link rel="icon" type="image/svg+xml" href="Sten.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="grid">
+
+    <!-- Row 1 -->
+    <div class="cell cell-dark">
+      <h1 class="intro-heading">
+        <span class="cursor">|</span>
+        <div>Stop typing.</div>
+      </h1>
+    </div>
+
+    <div class="cell cell-light">
+      <h1 class="intro-heading">
+        <img src="Sten.svg" width="64" height="64" alt="Sten" />
+        Start talking.
+      </h1>
+    </div>
+
+    <!-- Row 2 -->
+    <div class="cell cell-dark">
+      <div class="install">
+        <div class="install-code">
+          <code>curl -fsSL https://raw.githubusercontent.com/vladstudio/sten/main/install.sh | bash</code>
+          <button class="copy-btn" onclick="navigator.clipboard.writeText('curl -fsSL https://raw.githubusercontent.com/vladstudio/sten/main/install.sh | bash')">
+            <svg class="copy-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="6" y="6" width="11" height="11" rx="2"/>
+              <path d="M14 6V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>
+            </svg>
+          </button>
+        </div>
+        <details class="install-details">
+          <summary>What does the install script do?</summary>
+          <ul>
+            <li>Verifies macOS 14+ on Apple Silicon</li>
+            <li>Downloads the latest release from GitHub</li>
+            <li>Installs to /Applications (replaces existing version)</li>
+            <li>Removes quarantine flag so the unsigned app can run</li>
+            <li>Opens the app</li>
+          </ul>
+        </details>
+        <p class="install-meta">macOS 14+ &middot; Apple Silicon &middot; Free</p>
+      </div>
+    </div>
+
+    <div class="cell cell-light cell-content">
+
+      <ol class="steps">
+        <li><strong>Press hotkey</strong></li>
+        <li><strong>Talk</strong></li>
+        <li><strong>That's it</strong></li>
+      </ol>
+
+      <p class="tagline">Your voice is transcribed on-device and typed into the active app. Nothing is sent anywhere. Ever.</p>
+
+      <hr>
+
+      <h2>Transforms</h2>
+      <p>Run every transcription through custom scripts. Fix grammar with an LLM, enforce terminology — anything a shell script can do.</p>
+
+      <hr>
+
+      <ul class="features">
+        <li>Works in every app</li>
+        <li>25 languages</li>
+        <li>Free forever</li>
+      </ul>
+
+      <hr>
+
+      <dl class="faq">
+        <dt>Is it really free?</dt>
+        <dd>Yes.</dd>
+
+        <dt>What's the catch?</dt>
+        <dd>You need a Mac with Apple&nbsp;Silicon.</dd>
+
+        <dt>Will you start charging later?</dt>
+        <dd>It's open source. We literally can't.</dd>
+
+        <dt>How accurate is it?</dt>
+        <dd>It uses Parakeet&nbsp;TDT, a state&#8209;of&#8209;the&#8209;art model running on Apple's Neural&nbsp;Engine.</dd>
+      </dl>
+
+      <footer>
+        <a href="https://github.com/vladstudio/sten">GitHub</a>
+      </footer>
+
+    </div>
+
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,281 @@
+/* ── Reset & Base ──────────────────────────────────── */
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 18px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  color: #1d1d1f;
+  background: #0a0a0a;
+}
+
+
+/* ── Grid ─────────────────────────────────────────── */
+
+.grid {
+  display: grid;
+  grid-template-columns: 50dvw 50dvw;
+  grid-template-rows: 100dvh 100dvh;
+}
+
+
+/* ── Cells ────────────────────────────────────────── */
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.cell-dark {
+  background: #0a0a0a;
+  color: #f5f5f7;
+}
+
+.cell-light {
+  background: #f5f5f7;
+  color: #1d1d1f;
+}
+
+.cell-content {
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow-y: auto;
+  padding: 4rem;
+}
+
+
+/* ── Intro headings ───────────────────────────────── */
+
+.intro-heading {
+  display:grid;
+  justify-items: center;
+  font-size: clamp(2.4rem, 5vw, 4.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-align: center;
+  line-height: 1.1;
+}
+
+
+/* ── Blinking cursor ──────────────────────────────── */
+
+.cursor {
+  font-weight: 300;
+  height:64px;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+
+/* ── Install ──────────────────────────────────────── */
+
+.install {
+  max-width: 36rem;
+  width: 100%;
+  padding: 0 2rem;
+}
+
+.install-code {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.install-code code {
+  flex: 1;
+  color: #f5f5f7;
+}
+
+.copy-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: background 0.1s;
+}
+
+.copy-btn:hover {
+  background: #333;
+}
+
+.copy-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  color: #86868b;
+}
+
+.install-details {
+  margin-top: 0.75rem;
+}
+
+.install-details summary {
+  font-size: 0.82rem;
+  color: #86868b;
+  cursor: pointer;
+  list-style: none;
+}
+
+.install-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.install-details summary::before {
+  content: "▸ ";
+}
+
+.install-details[open] summary::before {
+  content: "▾ ";
+}
+
+.install-details summary:hover {
+  color: #f5f5f7;
+}
+
+.install-details ul {
+  margin-top: 0.75rem;
+  padding-left: 1.25rem;
+  font-size: 0.82rem;
+  color: #86868b;
+  line-height: 1.8;
+}
+
+.install-meta {
+  margin-top: 1rem;
+  color: #86868b;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+
+/* ── Content ──────────────────────────────────────── */
+
+.cell-content hr {
+  border: none;
+  border-top: 1px solid #d2d2d7;
+  margin: 2.5rem 0;
+}
+
+
+/* ── Steps ────────────────────────────────────────── */
+
+.steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.5rem;
+  counter-reset: step;
+  margin-bottom: 1.5rem;
+}
+
+.steps li {
+  counter-increment: step;
+  font-size: 1.1rem;
+}
+
+.steps li::before {
+  content: counter(step);
+  display: block;
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: #F05701;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.tagline {
+  color: #6e6e73;
+  max-width: 36rem;
+}
+
+
+/* ── Transforms ───────────────────────────────────── */
+
+h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.cell-content > p {
+  color: #6e6e73;
+  max-width: 36rem;
+}
+
+
+/* ── Features ─────────────────────────────────────── */
+
+.features {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.features li {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+
+/* ── FAQ ──────────────────────────────────────────── */
+
+.faq {
+  max-width: 36rem;
+}
+
+.faq dt {
+  font-weight: 600;
+  margin-top: 1.5rem;
+}
+
+.faq dt:first-of-type {
+  margin-top: 0;
+}
+
+.faq dd {
+  color: #6e6e73;
+}
+
+
+/* ── Footer ───────────────────────────────────────── */
+
+footer {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid #d2d2d7;
+}
+
+footer a {
+  color: #6e6e73;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+footer a:hover {
+  color: #1d1d1f;
+}
