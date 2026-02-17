@@ -27,12 +27,8 @@ MACOS_VERSION=$(sw_vers -productVersion | cut -d. -f1)
 
 # Get latest release URL
 info "Fetching latest release..."
-RELEASE_JSON=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest")
-if command -v jq &>/dev/null; then
-    DOWNLOAD_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[0].browser_download_url // empty')
-else
-    DOWNLOAD_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url": *"[^"]*"' | head -1 | cut -d '"' -f 4)
-fi
+DOWNLOAD_URL=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" \
+    | grep -o '"browser_download_url": *"[^"]*"' | head -1 | cut -d '"' -f 4)
 
 [[ -n "$DOWNLOAD_URL" ]] || error "Could not find release. Check https://github.com/$REPO/releases"
 
