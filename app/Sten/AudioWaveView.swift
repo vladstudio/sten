@@ -1,7 +1,6 @@
 // Animated audio level visualizer using Core Animation
 // Bars scroll continuously left; heights normalized to visible peak
 import AppKit
-import QuartzCore
 
 final class AudioWaveView: NSView {
     private struct Bar {
@@ -100,10 +99,12 @@ final class AudioWaveView: NSView {
 
         // Remove bars that have scrolled off screen
         let cutoff = CACurrentMediaTime() - (bounds.width + 50) / speed
-        while let first = bars.first, first.time < cutoff {
-            first.layer.removeFromSuperlayer()
-            bars.removeFirst()
+        var removeCount = 0
+        while removeCount < bars.count && bars[removeCount].time < cutoff {
+            bars[removeCount].layer.removeFromSuperlayer()
+            removeCount += 1
         }
+        if removeCount > 0 { bars.removeFirst(removeCount) }
 
         // Place new bars at consistent intervals driven by scroll position
         guard receiving, let container else { return }

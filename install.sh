@@ -34,7 +34,7 @@ DOWNLOAD_URL=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" \
 
 info "Downloading $APP_NAME..."
 TMP_DIR=$(mktemp -d)
-trap "rm -rf $TMP_DIR" EXIT
+trap 'rm -rf "$TMP_DIR"' EXIT
 
 curl -sL "$DOWNLOAD_URL" -o "$TMP_DIR/$APP_NAME.zip"
 

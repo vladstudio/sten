@@ -70,13 +70,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     private func loadIcon(_ name: String) -> NSImage? {
-        var img: NSImage?
-        if let url = Bundle.main.url(forResource: name, withExtension: "png") {
-            img = NSImage(contentsOf: url)
-        } else if let resourcePath = Bundle.main.resourcePath {
-            img = NSImage(contentsOfFile: "\(resourcePath)/\(name).png")
-        }
-        img?.size = NSSize(width: 18, height: 18)
+        guard let url = Bundle.main.url(forResource: name, withExtension: "png"),
+              let img = NSImage(contentsOf: url) else { return nil }
+        img.size = NSSize(width: 18, height: 18)
         return img
     }
 
@@ -231,9 +227,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func deleteModelAction() {
         confirmPanel = ConfirmPanel(message: "Delete the speech model and quit?\nYou can re-download it later.", confirmTitle: "Delete and Quit")
-        confirmPanel?.onConfirm = {
+        confirmPanel?.onConfirm = { [weak self] in
             Settings.shared.onboardingDone = false
-            self.appDelegate?.deleteModelAndQuit()
+            self?.appDelegate?.deleteModelAndQuit()
         }
         confirmPanel?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

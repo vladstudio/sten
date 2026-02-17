@@ -69,7 +69,11 @@ final class AudioRecorder {
         let capacity = AVAudioFrameCount(Double(buf.frameLength) * converter.outputFormat.sampleRate / converter.inputFormat.sampleRate)
         guard let out = AVAudioPCMBuffer(pcmFormat: converter.outputFormat, frameCapacity: capacity) else { return nil }
         var err: NSError?
-        converter.convert(to: out, error: &err) { _, s in s.pointee = .haveData; return buf }
+        var provided = false
+        converter.convert(to: out, error: &err) { _, s in
+            if provided { s.pointee = .noDataNow; return nil }
+            provided = true; s.pointee = .haveData; return buf
+        }
         return err == nil ? out : nil
     }
 }

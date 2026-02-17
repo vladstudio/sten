@@ -20,51 +20,37 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
   line-height: 1.5;
   color: #1d1d1f;
-  background: #0a0a0a;
+  background: #fff;
 }
 
 
-/* ── Grid ─────────────────────────────────────────── */
+/* ── Intro ────────────────────────────────────────── */
 
-.grid {
-  display: grid;
-  grid-template-columns: 50dvw 50dvw;
-  grid-template-rows: 100dvh 100dvh;
-}
-
-
-/* ── Cells ────────────────────────────────────────── */
-
-.cell {
+.intro {
   display: flex;
-  flex-direction: column;
+  height: 100dvh;
+}
+
+.intro-left,
+.intro-right {
+  flex: 1;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
 }
 
-.cell-dark {
+.intro-left {
   background: #0a0a0a;
   color: #f5f5f7;
 }
 
-.cell-light {
+.intro-right {
   background: #f5f5f7;
   color: #1d1d1f;
 }
 
-.cell-content {
-  align-items: stretch;
-  justify-content: flex-start;
-  overflow-y: auto;
-  padding: 4rem;
-}
-
-
-/* ── Intro headings ───────────────────────────────── */
-
 .intro-heading {
-  display:grid;
+  display: grid;
   justify-items: center;
   font-size: clamp(2.4rem, 5vw, 4.5rem);
   font-weight: 700;
@@ -78,7 +64,7 @@ body {
 
 .cursor {
   font-weight: 300;
-  height:64px;
+  height: 64px;
   animation: blink 1s step-end infinite;
 }
 
@@ -87,13 +73,38 @@ body {
 }
 
 
-/* ── Install ──────────────────────────────────────── */
+/* ── Divider ──────────────────────────────────────── */
 
-.install {
-  max-width: 36rem;
-  width: 100%;
-  padding: 0 2rem;
+.divider {
+  height: 40px;
+  background: repeating-linear-gradient(
+    to bottom,
+    #0a0a0a 0px, #0a0a0a 4px,
+    #fff    4px, #fff    8px
+  );
 }
+
+
+/* ── Main content ─────────────────────────────────── */
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 4rem 2rem;
+}
+
+main hr {
+  border: none;
+  border-top: 1px solid #d2d2d7;
+  margin: 2.5rem 0;
+}
+
+main > p {
+  color: #6e6e73;
+}
+
+
+/* ── Install ──────────────────────────────────────── */
 
 .install-hint {
   color: #86868b;
@@ -105,8 +116,8 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: #0a0a0a;
+  border: 1px solid #d2d2d7;
   border-radius: 0.5rem;
   padding: 1rem 1.25rem;
   font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
@@ -164,7 +175,7 @@ body {
 }
 
 .install-details summary:hover {
-  color: #f5f5f7;
+  color: #1d1d1f;
 }
 
 .install-details ul {
@@ -173,22 +184,6 @@ body {
   font-size: 0.82rem;
   color: #86868b;
   line-height: 1.8;
-}
-
-.install-meta {
-  margin-top: 1rem;
-  color: #86868b;
-  font-size: 0.78rem;
-  text-align: center;
-}
-
-
-/* ── Content ──────────────────────────────────────── */
-
-.cell-content hr {
-  border: none;
-  border-top: 1px solid #d2d2d7;
-  margin: 2.5rem 0;
 }
 
 
@@ -220,7 +215,6 @@ body {
 
 .tagline {
   color: #6e6e73;
-  max-width: 36rem;
 }
 
 
@@ -230,11 +224,6 @@ h2 {
   font-size: 1.4rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-}
-
-.cell-content > p {
-  color: #6e6e73;
-  max-width: 36rem;
 }
 
 
@@ -254,10 +243,6 @@ h2 {
 
 
 /* ── FAQ ──────────────────────────────────────────── */
-
-.faq {
-  max-width: 36rem;
-}
 
 .faq dt {
   font-weight: 600;
@@ -295,24 +280,17 @@ footer a:hover {
 /* ── Mobile ───────────────────────────────────────── */
 
 @media (max-width: 600px) {
-  .grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: 50dvh 50dvh auto auto;
+  .intro {
+    flex-direction: column;
   }
 
-  .cell-content {
+  .intro-left,
+  .intro-right {
+    flex: 1;
+  }
+
+  main {
     padding: 2.5rem 1.5rem;
-    overflow-y: visible;
-  }
-
-  .steps,
-  .features {
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 1rem;
-  }
-
-  .install {
-    padding: 0 1.5rem;
   }
 
   .install-code {

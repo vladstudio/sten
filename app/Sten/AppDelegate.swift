@@ -169,7 +169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         menu.state = .transcribing
-        Task {
+        Task.detached { [self] in
             let text = await engine.transcribe(audio)
             let transformed = text.flatMap { t in t.isEmpty ? nil : applyTransforms(t) }
             await MainActor.run {
