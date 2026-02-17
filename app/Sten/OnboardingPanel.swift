@@ -76,7 +76,7 @@ final class OnboardingPanel: NSPanel {
             button.title = "Open System Settings"
             startPolling(check: { AXIsProcessTrusted() }, then: { [weak self] in self?.nextStep() })
         case .model:
-            label.stringValue = "Downloading speech recognition model...\nThis runs entirely on your device for privacy."
+            label.stringValue = "Downloading speech recognition model...\nThis runs entirely on your device."
             button.title = "Downloading..."
             button.isEnabled = false
             secondaryButton.title = "Cancel"
@@ -169,7 +169,7 @@ final class OnboardingPanel: NSPanel {
             """
         case 1: apiCall = """
             uri = URI("https://api.openai.com/v1/chat/completions")
-            response = Net::HTTP.post(uri, { model: 'gpt-4o-mini', messages: [{ role: 'user', content: PROMPT + text }] }.to_json, 'Content-Type' => 'application/json', 'Authorization' => "Bearer #{api_key}")
+            response = Net::HTTP.post(uri, { model: 'gpt-5-nano', messages: [{ role: 'user', content: PROMPT + text }] }.to_json, 'Content-Type' => 'application/json', 'Authorization' => "Bearer #{api_key}")
             result = JSON.parse(response.body).dig('choices', 0, 'message', 'content') rescue nil
             """
         case 2: apiCall = """
