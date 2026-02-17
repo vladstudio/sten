@@ -4,18 +4,18 @@
 <dict>
 	<key>CFBundleExecutable</key>
 	<string>Sten</string>
+	<key>CFBundleIconFile</key>
+	<string>Sten</string>
 	<key>CFBundleIdentifier</key>
 	<string>studio.vlad.sten</string>
 	<key>CFBundleName</key>
 	<string>Sten</string>
-	<key>CFBundleIconFile</key>
-	<string>Sten</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
-	<key>CFBundleVersion</key>
-	<string>1.13</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.13</string>
+	<string>1.14</string>
+	<key>CFBundleVersion</key>
+	<string>1.14</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>

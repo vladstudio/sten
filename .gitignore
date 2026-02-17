@@ -13,3 +13,4 @@ xcuserdata/
 # Dependencies
 app/lib/whisper.cpp
 models/
+release.sh
