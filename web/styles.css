@@ -6,6 +6,11 @@
   box-sizing: border-box;
 }
 
+:focus-visible {
+  outline: 2px solid rgba(240, 87, 1, 0.6);
+  outline-offset: 2px;
+}
+
 html {
   font-size: 18px;
   -webkit-font-smoothing: antialiased;
@@ -88,6 +93,12 @@ body {
   max-width: 36rem;
   width: 100%;
   padding: 0 2rem;
+}
+
+.install-hint {
+  color: #86868b;
+  font-size: 0.82rem;
+  margin-bottom: 0.5rem;
 }
 
 .install-code {
@@ -278,4 +289,33 @@ footer a {
 
 footer a:hover {
   color: #1d1d1f;
+}
+
+
+/* ── Mobile ───────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: 50dvh 50dvh auto auto;
+  }
+
+  .cell-content {
+    padding: 2.5rem 1.5rem;
+    overflow-y: visible;
+  }
+
+  .steps,
+  .features {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .install {
+    padding: 0 1.5rem;
+  }
+
+  .install-code {
+    font-size: 0.72rem;
+  }
 }
