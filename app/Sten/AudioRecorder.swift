@@ -72,8 +72,8 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         if buffer.count + count <= maxSamples {
             buffer.append(contentsOf: UnsafeBufferPointer(start: channelData, count: count))
         }
-        let isFirst = !ready
-        if isFirst { ready = true }
+        let isFirst = !ready && buffer.count >= Self.sampleRate
+        if isFirst { ready = true; buffer.removeAll() }
         lock.unlock()
 
         let rms = sqrt(vDSP.meanSquare(UnsafeBufferPointer(start: channelData, count: count)))
