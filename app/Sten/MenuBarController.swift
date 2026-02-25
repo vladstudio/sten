@@ -159,7 +159,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             cancel.target = self
             menu.addItem(cancel)
         case .loading:
-            menu.addItem(NSMenuItem(title: "Loading model...", action: nil, keyEquivalent: ""))
+            menu.addItem(NSMenuItem(title: "Preparing...", action: nil, keyEquivalent: ""))
+            let cancel = NSMenuItem(title: "Cancel", action: #selector(cancelAction), keyEquivalent: "")
+            cancel.target = self
+            menu.addItem(cancel)
         }
 
         menu.addItem(.separator())

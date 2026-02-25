@@ -103,6 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkey.onPress = { [weak self] in
             guard let self else { return }
             if menu.state == .idle { startListening() }
+            else if menu.state == .loading { cancelOperation() }
             else if menu.state == .listening { stopListening() }
         }
         hotkey.onTapFailed = { [weak self] in
@@ -137,26 +138,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // Start recording and show listening panel
+    // Start recording and show listening panel once audio is flowing
     private func startListening() {
         NSLog("[STEN] startListening called, state=\(menu.state), engineReady=\(engine.isReady)")
         idleTimer?.invalidate()
         guard engine.isReady else { pendingListen = true; loadEngineIfNeeded(); return }
-        menu.state = .listening
+        menu.state = .loading
+        recorder.onReady = { [weak self] in
+            guard let self, menu.state == .loading else { return }
+            recorder.onReady = nil
+            NSLog("[STEN] recorder ready, showing panel")
+            menu.state = .listening
+            listeningPanel = ListeningPanel()
+            listeningPanel?.onCancel = { [weak self] in self?.cancelOperation() }
+            listeningPanel?.onTranscribe = { [weak self] in self?.stopListening() }
+            recorder.onLevel = { [weak self] in self?.listeningPanel?.addLevel($0) }
+            if let btn = menu.statusButton, let w = btn.window { listeningPanel?.positionBelow(w.convertToScreen(btn.frame)) }
+            listeningPanel?.makeKeyAndOrderFront(nil)
+            NSLog("[STEN] panel shown")
+        }
         do { try recorder.start() } catch {
             NSLog("[STEN] recorder.start() FAILED: \(error)")
+            recorder.onReady = nil
             menu.state = .idle
             showNotification("Recording Failed", "\(error.localizedDescription)")
             return
         }
-        NSLog("[STEN] recorder.start() OK, creating panel")
-        listeningPanel = ListeningPanel()
-        listeningPanel?.onCancel = { [weak self] in self?.cancelOperation() }
-        listeningPanel?.onTranscribe = { [weak self] in self?.stopListening() }
-        recorder.onLevel = { [weak self] in self?.listeningPanel?.addLevel($0) }
-        if let btn = menu.statusButton, let w = btn.window { listeningPanel?.positionBelow(w.convertToScreen(btn.frame)) }
-        listeningPanel?.makeKeyAndOrderFront(nil)
-        NSLog("[STEN] panel shown")
+        NSLog("[STEN] recorder.start() OK, waiting for audio")
     }
 
     private func closeListeningPanel() {
@@ -196,7 +204,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func cancelOperation() {
         NSLog("[STEN] cancelOperation called, state=\(menu.state)")
         closeListeningPanel()
-        if menu.state == .listening { _ = recorder.stop(); menu.state = .idle }
+        if menu.state == .listening || menu.state == .loading { pendingListen = false; recorder.onReady = nil; _ = recorder.stop(); menu.state = .idle }
         else if menu.state == .transcribing { menu.state = .idle }
         scheduleIdleUnload()
     }

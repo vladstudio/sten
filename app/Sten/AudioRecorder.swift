@@ -11,8 +11,10 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
     private var buffer: [Float] = []
     private let lock = NSLock()
     private let maxSamples = sampleRate * maxDurationSeconds
+    private var ready = false
     private let callbackQueue = DispatchQueue(label: "audio-capture")
     var onLevel: ((Float) -> Void)?
+    var onReady: (() -> Void)?
 
     private lazy var targetFormat: AVAudioFormat? = {
         AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(Self.sampleRate), channels: 1, interleaved: false)
@@ -20,7 +22,7 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
 
     func start() throws {
         _ = stop()
-        lock.lock(); buffer.removeAll(); lock.unlock()
+        lock.lock(); buffer.removeAll(); ready = false; lock.unlock()
 
         let session = AVCaptureSession()
         guard let device = AVCaptureDevice.default(for: .audio) else {
@@ -70,10 +72,15 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         if buffer.count + count <= maxSamples {
             buffer.append(contentsOf: UnsafeBufferPointer(start: channelData, count: count))
         }
+        let isFirst = !ready
+        if isFirst { ready = true }
         lock.unlock()
 
         let rms = sqrt(vDSP.meanSquare(UnsafeBufferPointer(start: channelData, count: count)))
-        DispatchQueue.main.async { [weak self] in self?.onLevel?(rms) }
+        DispatchQueue.main.async { [weak self] in
+            if isFirst { self?.onReady?() }
+            self?.onLevel?(rms)
+        }
     }
 
     // MARK: - Private
