@@ -139,16 +139,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Start recording and show listening panel
     private func startListening() {
+        NSLog("[STEN] startListening called, state=\(menu.state), engineReady=\(engine.isReady)")
         idleTimer?.invalidate()
         guard engine.isReady else { pendingListen = true; loadEngineIfNeeded(); return }
         menu.state = .listening
-        do { try recorder.start() } catch { menu.state = .idle; return }
+        do { try recorder.start() } catch {
+            NSLog("[STEN] recorder.start() FAILED: \(error)")
+            menu.state = .idle
+            showNotification("Recording Failed", "\(error.localizedDescription)")
+            return
+        }
+        NSLog("[STEN] recorder.start() OK, creating panel")
         listeningPanel = ListeningPanel()
         listeningPanel?.onCancel = { [weak self] in self?.cancelOperation() }
         listeningPanel?.onTranscribe = { [weak self] in self?.stopListening() }
         recorder.onLevel = { [weak self] in self?.listeningPanel?.addLevel($0) }
         if let btn = menu.statusButton, let w = btn.window { listeningPanel?.positionBelow(w.convertToScreen(btn.frame)) }
         listeningPanel?.makeKeyAndOrderFront(nil)
+        NSLog("[STEN] panel shown")
     }
 
     private func closeListeningPanel() {
@@ -161,9 +169,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Stop recording, transcribe, apply transforms, output text
     private func stopListening() {
+        NSLog("[STEN] stopListening called, state=\(menu.state)")
         let audio = recorder.stop()
+        NSLog("[STEN] audio samples=\(audio.count), minRequired=\(Self.minAudioSamples), peak=\(audio.map { abs($0) }.max() ?? 0)")
         closeListeningPanel()
         guard audio.count > Self.minAudioSamples else {
+            NSLog("[STEN] too few samples, discarding")
             menu.state = .idle
             scheduleIdleUnload()
             return
@@ -171,16 +182,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.state = .transcribing
         Task.detached { [self] in
             let text = await engine.transcribe(audio)
+            NSLog("[STEN] transcription result: \(text ?? "nil")")
             let transformed = text.flatMap { t in t.isEmpty ? nil : applyTransforms(t) }
             await MainActor.run {
                 menu.state = .idle
                 scheduleIdleUnload()
                 if let transformed { outputText(transformed) }
+                else { NSLog("[STEN] no output — text was nil or empty") }
             }
         }
     }
 
     private func cancelOperation() {
+        NSLog("[STEN] cancelOperation called, state=\(menu.state)")
         closeListeningPanel()
         if menu.state == .listening { _ = recorder.stop(); menu.state = .idle }
         else if menu.state == .transcribing { menu.state = .idle }

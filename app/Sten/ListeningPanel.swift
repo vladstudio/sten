@@ -21,6 +21,6 @@ final class ListeningPanel: NSPanel {
     private var isTranscribing = false
     func addLevel(_ level: Float) { waveView.addLevel(level) }
     @objc private func doTranscribe() { isTranscribing = true; close(); onTranscribe?() }
-    override func close() { super.close(); if !isTranscribing { onCancel?() } }
+    override func close() { NSLog("[STEN] ListeningPanel.close() isTranscribing=\(isTranscribing) onCancel=\(onCancel != nil)"); super.close(); if !isTranscribing { onCancel?() } }
     override var canBecomeKey: Bool { true }
 }
