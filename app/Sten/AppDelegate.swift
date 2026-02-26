@@ -27,9 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.onCancel = { [weak self] in self?.cancelOperation() }
         setupHotkey()
 
-        // Unload model on memory pressure
+        // Unload model and tear down audio session on memory pressure
         memorySource = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
-        memorySource?.setEventHandler { [weak self] in self?.pendingListen = false; self?.engine.unload() }
+        memorySource?.setEventHandler { [weak self] in self?.pendingListen = false; self?.engine.unload(); self?.recorder.teardown() }
         memorySource?.resume()
 
         if Settings.shared.onboardingDone { checkPermissionsAndUpdateMenu(); UpdateChecker.check() }
@@ -73,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             stopPermissionPolling()
             menu.showNormalMenu()
             hotkey.start()
+            do { try recorder.prepare() } catch { NSLog("[STEN] recorder.prepare() failed: %@", "\(error)") }
             loadEngineIfNeeded()
         }
     }
@@ -157,9 +158,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             listeningPanel?.makeKeyAndOrderFront(nil)
             NSLog("[STEN] panel shown")
         }
+        recorder.onError = { [weak self] msg in
+            guard let self, menu.state == .loading else { return }
+            NSLog("[STEN] recorder error: %@", msg)
+            self.cancelOperation()
+            self.showNotification("Recording Failed", "\(msg). Check System Settings.")
+        }
         do { try recorder.start() } catch {
             NSLog("[STEN] recorder.start() FAILED: \(error)")
             recorder.onReady = nil
+            recorder.onError = nil
             menu.state = .idle
             showNotification("Recording Failed", "\(error.localizedDescription)")
             return
@@ -178,6 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // Stop recording, transcribe, apply transforms, output text
     private func stopListening() {
         NSLog("[STEN] stopListening called, state=\(menu.state)")
+        recorder.onError = nil
         let audio = recorder.stop()
         NSLog("[STEN] audio samples=\(audio.count), minRequired=\(Self.minAudioSamples), peak=\(audio.map { abs($0) }.max() ?? 0)")
         closeListeningPanel()
@@ -204,7 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func cancelOperation() {
         NSLog("[STEN] cancelOperation called, state=\(menu.state)")
         closeListeningPanel()
-        if menu.state == .listening || menu.state == .loading { pendingListen = false; recorder.onReady = nil; _ = recorder.stop(); menu.state = .idle }
+        if menu.state == .listening || menu.state == .loading { pendingListen = false; recorder.onReady = nil; recorder.onError = nil; _ = recorder.stop(); menu.state = .idle }
         else if menu.state == .transcribing { menu.state = .idle }
         scheduleIdleUnload()
     }

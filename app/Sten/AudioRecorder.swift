@@ -6,23 +6,31 @@ import CoreMedia
 final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     static let sampleRate = 16000
     static let maxDurationSeconds = 5 * 60
+    private static let warmupSamples = sampleRate / 10  // 100ms
 
     private var session: AVCaptureSession?
+    private var currentDeviceID: String?
     private var buffer: [Float] = []
     private let lock = NSLock()
     private let maxSamples = sampleRate * maxDurationSeconds
     private var ready = false
+    private var capturing = false
+    private var generation = 0
+    private var loggedDropOnce = false
     private let callbackQueue = DispatchQueue(label: "audio-capture")
+    private let sessionQueue = DispatchQueue(label: "session-lifecycle")
     var onLevel: ((Float) -> Void)?
     var onReady: (() -> Void)?
+    var onError: ((String) -> Void)?
 
     private lazy var targetFormat: AVAudioFormat? = {
         AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(Self.sampleRate), channels: 1, interleaved: false)
     }()
 
-    func start() throws {
-        _ = stop()
-        lock.lock(); buffer.removeAll(); ready = false; lock.unlock()
+    /// Configure the AVCaptureSession without starting it. Call once after mic permission is granted.
+    /// The session stays configured so subsequent start() calls only need to toggle the hardware.
+    func prepare() throws {
+        guard session == nil else { return }
 
         let session = AVCaptureSession()
         guard let device = AVCaptureDevice.default(for: .audio) else {
@@ -42,37 +50,99 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         }
         session.addOutput(output)
 
-        session.startRunning()
         self.session = session
+        self.currentDeviceID = device.uniqueID
+
+        NotificationCenter.default.addObserver(self, selector: #selector(deviceDisconnected(_:)),
+                                               name: .AVCaptureDeviceWasDisconnected, object: nil)
+        NSLog("[STEN] session prepared, device=%@", device.localizedName)
     }
 
-    func stop() -> [Float] {
-        if let session {
-            session.stopRunning()
-            self.session = nil
+    /// Begin capturing audio. Starts the session on a background queue if not already running.
+    func start() throws {
+        if session == nil { try prepare() }
+        lock.lock()
+        buffer.removeAll()
+        ready = false
+        capturing = true
+        generation += 1
+        let gen = generation
+        loggedDropOnce = false
+        lock.unlock()
+
+        sessionQueue.async { [weak self] in
+            self?.session?.startRunning()
         }
+
+        // Watchdog: if no audio arrives within 3 seconds, fire error
+        callbackQueue.asyncAfter(deadline: .now() + 3) { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            let stalled = self.capturing && !self.ready && self.generation == gen
+            self.lock.unlock()
+            if stalled {
+                NSLog("[STEN] watchdog: no audio after 3s")
+                DispatchQueue.main.async { self.onError?("No audio from microphone") }
+            }
+        }
+    }
+
+    /// Stop accumulating and return captured samples. Stops the session in the background.
+    func stop() -> [Float] {
+        lock.lock()
+        capturing = false
+        let result = buffer
+        buffer.removeAll()
+        lock.unlock()
+        sessionQueue.async { [weak self] in
+            self?.session?.stopRunning()
+        }
+        return result
+    }
+
+    /// Tear down the session entirely (memory pressure, app quit).
+    func teardown() {
+        lock.lock()
+        capturing = false
+        buffer.removeAll()
+        lock.unlock()
+        let s = session
+        session = nil
         cachedConverter = nil
         cachedSourceFormat = nil
-        lock.lock(); let result = buffer; buffer.removeAll(); lock.unlock()
-        return result
+        currentDeviceID = nil
+        NotificationCenter.default.removeObserver(self, name: .AVCaptureDeviceWasDisconnected, object: nil)
+        sessionQueue.async { s?.stopRunning() }
+        NSLog("[STEN] session torn down")
     }
 
     // MARK: - AVCaptureAudioDataOutputSampleBufferDelegate
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        lock.lock()
+        let active = capturing
+        lock.unlock()
+        guard active else { return }
+
         guard let target = targetFormat,
-              let pcmBuffer = pcmBuffer(from: sampleBuffer) else { return }
+              let pcmBuffer = pcmBuffer(from: sampleBuffer) else {
+            logDrop("pcm extraction failed")
+            return
+        }
 
         let converter = converterFor(pcmBuffer.format, target: target)
         guard let converter, let out = Self.convert(pcmBuffer, converter),
-              let channelData = out.floatChannelData?[0] else { return }
+              let channelData = out.floatChannelData?[0] else {
+            logDrop(String(format: "resampling failed (rate=%.0f ch=%d)", pcmBuffer.format.sampleRate, pcmBuffer.format.channelCount))
+            return
+        }
 
         let count = Int(out.frameLength)
         lock.lock()
         if buffer.count + count <= maxSamples {
             buffer.append(contentsOf: UnsafeBufferPointer(start: channelData, count: count))
         }
-        let isFirst = !ready && buffer.count >= Self.sampleRate
+        let isFirst = !ready && buffer.count >= Self.warmupSamples
         if isFirst { ready = true; buffer.removeAll() }
         lock.unlock()
 
@@ -83,7 +153,31 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         }
     }
 
+    // MARK: - Device monitoring
+
+    @objc private func deviceDisconnected(_ note: Notification) {
+        guard let device = note.object as? AVCaptureDevice, device.uniqueID == currentDeviceID else { return }
+        NSLog("[STEN] audio device disconnected: %@", device.localizedName)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let wasCapturing: Bool
+            self.lock.lock()
+            wasCapturing = self.capturing
+            self.lock.unlock()
+            self.teardown()
+            if wasCapturing { self.onError?("Microphone disconnected") }
+        }
+    }
+
     // MARK: - Private
+
+    private func logDrop(_ reason: String) {
+        lock.lock()
+        let shouldLog = !loggedDropOnce
+        if shouldLog { loggedDropOnce = true }
+        lock.unlock()
+        if shouldLog { NSLog("[STEN] audio frame dropped: %@", reason) }
+    }
 
     private func pcmBuffer(from sampleBuffer: CMSampleBuffer) -> AVAudioPCMBuffer? {
         guard let formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer),
