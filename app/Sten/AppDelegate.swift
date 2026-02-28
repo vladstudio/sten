@@ -166,6 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showNotification("Recording Failed", "\(error.localizedDescription)")
             return
         }
+        listeningPanel?.title = AVCaptureDevice.default(for: .audio)?.localizedName ?? ""
     }
 
     private func closeListeningPanel() {
