@@ -60,7 +60,8 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
 
     /// Begin capturing audio. Starts the session on a background queue if not already running.
     func start() throws {
-        if session == nil { try prepare() }
+        teardown()
+        try prepare()
         lock.lock()
         buffer.removeAll()
         ready = false
@@ -102,6 +103,7 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
 
     /// Tear down the session entirely (memory pressure, app quit).
     func teardown() {
+        guard session != nil else { return }
         lock.lock()
         capturing = false
         buffer.removeAll()

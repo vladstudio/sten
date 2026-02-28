@@ -199,7 +199,7 @@ final class OnboardingPanel: NSPanel {
             var enabled = Settings.shared.enabledTransforms
             enabled.insert("01 Grammar and Custom Words.rb")
             Settings.shared.enabledTransforms = enabled
-        } catch {}
+        } catch { NSLog("[STEN] transform script failed: %@", "\(error)") }
     }
 
     // Poll condition until true, then call callback

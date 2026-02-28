@@ -18,9 +18,8 @@ final class ListeningPanel: NSPanel {
         NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 12), stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -12), stack.centerYAnchor.constraint(equalTo: content.centerYAnchor)])
     }
 
-    private var isTranscribing = false
     func addLevel(_ level: Float) { waveView.addLevel(level) }
-    @objc private func doTranscribe() { isTranscribing = true; close(); onTranscribe?() }
-    override func close() { NSLog("[STEN] ListeningPanel.close() isTranscribing=\(isTranscribing) onCancel=\(onCancel != nil)"); super.close(); if !isTranscribing { onCancel?() } }
+    @objc private func doTranscribe() { onCancel = nil; close(); onTranscribe?() }
+    override func close() { let cb = onCancel; onCancel = nil; super.close(); cb?() }
     override var canBecomeKey: Bool { true }
 }
