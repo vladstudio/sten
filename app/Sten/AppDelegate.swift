@@ -71,6 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             startPermissionPolling()
         } else {
             stopPermissionPolling()
+            if !engine.isReady { menu.state = .loading }
             menu.showNormalMenu()
             hotkey.start()
             do { try recorder.prepare() } catch { NSLog("[STEN] recorder.prepare() failed: %@", "\(error)") }
