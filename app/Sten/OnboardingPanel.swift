@@ -21,7 +21,6 @@ final class OnboardingPanel: NSPanel {
         ("OpenAI", "openai_api_key", "OPENAI_API_KEY", "https://platform.openai.com/api-keys"),
         ("Anthropic", "anthropic_api_key", "ANTHROPIC_API_KEY", "https://console.anthropic.com/settings/keys"),
     ]
-    private static let configFile = Settings.stenDir.appendingPathComponent("config.json")
     private static let transformScript = MenuBarController.transformsDir.appendingPathComponent("01 Grammar and Custom Words.rb")
 
     init() {
@@ -148,14 +147,7 @@ final class OnboardingPanel: NSPanel {
     }
 
     private func saveApiKey(_ key: String, provider idx: Int) {
-        let url = Self.configFile
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        var config: [String: String] = [:]
-        if let data = try? Data(contentsOf: url), let json = try? JSONSerialization.jsonObject(with: data) as? [String: String] { config = json }
-        config[Self.providers[idx].configKey] = key
-        if let data = try? JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys]) {
-            try? data.write(to: url)
-        }
+        Settings.shared.setConfig(Self.providers[idx].configKey, key)
     }
 
     private func writeTransformScript(provider idx: Int) {
