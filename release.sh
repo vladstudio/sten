@@ -2,29 +2,20 @@
 set -e
 cd "$(dirname "$0")"
 
-# Get current version from Info.plist
 CURRENT=$(plutil -extract CFBundleShortVersionString raw app/Sten/Info.plist)
-# Bump minor: 1.13 -> 1.14
-MAJOR=${CURRENT%.*}
-MINOR=${CURRENT##*.}
-NEW="$MAJOR.$((MINOR + 1))"
+VERSION=${1:-${CURRENT%.*}.$((${CURRENT##*.} + 1))}
+echo "==> $CURRENT -> $VERSION"
 
-echo "==> $CURRENT -> $NEW"
+plutil -replace CFBundleShortVersionString -string "$VERSION" app/Sten/Info.plist
+plutil -replace CFBundleVersion -string "$VERSION" app/Sten/Info.plist
 
-# Update Info.plist (both version fields)
-plutil -replace CFBundleShortVersionString -string "$NEW" app/Sten/Info.plist
-plutil -replace CFBundleVersion -string "$NEW" app/Sten/Info.plist
-
-# Build
 ./build.sh
 
-# Commit, tag, push
-git add -A
-git commit -m "v$NEW"
-git push
+git add app/Sten/Info.plist
+git commit -m "v$VERSION"
+git tag "v$VERSION"
+git push --tags
 
-# Zip and release
-rm -f /tmp/Sten.zip
 ditto -c -k --sequesterRsrc --keepParent /Applications/Sten.app /tmp/Sten.zip
-gh release create "v$NEW" /tmp/Sten.zip --title "v$NEW" --notes ""
-echo "==> Released v$NEW"
+gh release create "v$VERSION" /tmp/Sten.zip --title "v$VERSION" --notes ""
+echo "==> Released v$VERSION"

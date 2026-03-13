@@ -37,6 +37,21 @@ final class TranscriptionEngine {
         }
     }
 
+    // Transcribe audio file to text (streams long files automatically)
+    func transcribe(_ url: URL) async -> String? {
+        guard let manager else { return nil }
+        do {
+            let result = try await manager.transcribe(url)
+            let text = result.text
+                .replacingOccurrences(of: "\n", with: " ")
+                .trimmingCharacters(in: .whitespaces)
+            return text.isEmpty ? nil : text
+        } catch {
+            NSLog("[STEN] file transcription failed: %@", "\(error)")
+            return nil
+        }
+    }
+
     // Release model from memory
     func unload() {
         isReady = false
