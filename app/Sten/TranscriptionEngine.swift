@@ -1,5 +1,6 @@
 // Speech-to-text engine using FluidAudio (on-device Whisper model)
 import FluidAudio
+import Foundation
 
 final class TranscriptionEngine {
     private var models: AsrModels?
@@ -26,30 +27,22 @@ final class TranscriptionEngine {
     // Transcribe audio samples to text
     func transcribe(_ audio: [Float]) async -> String? {
         guard let manager, !audio.isEmpty else { return nil }
-        do {
-            let result = try await manager.transcribe(audio)
-            let text = result.text
-                .replacingOccurrences(of: "\n", with: " ")
-                .trimmingCharacters(in: .whitespaces)
-            return text.isEmpty ? nil : text
-        } catch {
-            return nil
-        }
+        do { return normalize(try await manager.transcribe(audio)) }
+        catch { return nil }
     }
 
     // Transcribe audio file to text (streams long files automatically)
     func transcribe(_ url: URL) async -> String? {
         guard let manager else { return nil }
-        do {
-            let result = try await manager.transcribe(url)
-            let text = result.text
-                .replacingOccurrences(of: "\n", with: " ")
-                .trimmingCharacters(in: .whitespaces)
-            return text.isEmpty ? nil : text
-        } catch {
-            NSLog("[STEN] file transcription failed: %@", "\(error)")
-            return nil
-        }
+        do { return normalize(try await manager.transcribe(url)) }
+        catch { NSLog("[STEN] file transcription failed: %@", "\(error)"); return nil }
+    }
+
+    private func normalize(_ result: ASRResult) -> String? {
+        let text = result.text
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+        return text.isEmpty ? nil : text
     }
 
     // Release model from memory

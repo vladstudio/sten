@@ -1,6 +1,7 @@
 // Main app coordinator - manages recording, transcription, permissions, and UI state
 import AppKit
 import AVFoundation
+import UniformTypeIdentifiers
 import UserNotifications
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -16,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var idleTimer: Timer?
     private var memorySource: DispatchSourceMemoryPressure?
     private var pendingListen = false
+    private var pendingFileURL: URL?
     private var onboarding: OnboardingPanel?
     private var listeningPanel: ListeningPanel?
 
@@ -25,11 +27,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.onListen = { [weak self] in self?.startListening() }
         menu.onTranscribe = { [weak self] in self?.stopListening() }
         menu.onCancel = { [weak self] in self?.cancelOperation() }
+        menu.onTranscribeFile = { [weak self] in self?.transcribeFile() }
         setupHotkey()
 
         // Unload model and tear down audio session on memory pressure
         memorySource = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
-        memorySource?.setEventHandler { [weak self] in self?.pendingListen = false; self?.engine.unload(); self?.recorder.teardown() }
+        memorySource?.setEventHandler { [weak self] in self?.pendingListen = false; self?.pendingFileURL = nil; self?.engine.unload(); self?.recorder.teardown() }
         memorySource?.resume()
 
         Settings.shared.syncLoginItem()
@@ -119,6 +122,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !engine.isReady else {
             menu.modelReady = true
             if pendingListen { pendingListen = false; startListening() }
+            else if let url = pendingFileURL { pendingFileURL = nil; startFileTranscription(url) }
             return
         }
         menu.state = .loading
@@ -126,8 +130,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let ok = await engine.load()
             await MainActor.run {
                 menu.modelReady = ok; menu.state = .idle
-                if !ok { pendingListen = false; showNotification("Model Error", "Failed to load model") }
+                if !ok { pendingListen = false; pendingFileURL = nil; showNotification("Model Error", "Failed to load model") }
                 else if pendingListen { pendingListen = false; startListening() }
+                else if let url = pendingFileURL { pendingFileURL = nil; startFileTranscription(url) }
                 else { scheduleIdleUnload() }
             }
         }
@@ -206,10 +211,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private static let audioFileTypes = ["wav", "mp3", "m4a", "aiff", "aif", "caf", "flac", "mp4", "mov"]
+
+    private func transcribeFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = Self.audioFileTypes.compactMap {
+            UTType(filenameExtension: $0)
+        }
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = "Select an audio file to transcribe"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        idleTimer?.invalidate()
+        guard engine.isReady else {
+            pendingFileURL = url
+            loadEngineIfNeeded()
+            return
+        }
+        startFileTranscription(url)
+    }
+
+    private func startFileTranscription(_ url: URL) {
+        menu.state = .transcribing
+        Task.detached { [self] in
+            let text = await engine.transcribe(url)
+            NSLog("[STEN] file transcription result length: \(text?.count ?? 0)")
+            let transformed = text.flatMap { t in t.isEmpty ? nil : applyTransforms(t) }
+            await MainActor.run {
+                menu.state = .idle
+                scheduleIdleUnload()
+                guard let transformed else {
+                    showNotification("Transcription Failed", "Could not transcribe \(url.lastPathComponent)")
+                    return
+                }
+                let outURL = url.deletingPathExtension().appendingPathExtension("txt")
+                do {
+                    try transformed.write(to: outURL, atomically: true, encoding: .utf8)
+                    showNotification("Transcription Complete", outURL.lastPathComponent)
+                } catch {
+                    showNotification("Write Failed", "Could not save \(outURL.lastPathComponent): \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
     private func cancelOperation() {
         NSLog("[STEN] cancelOperation called, state=\(menu.state)")
         closeListeningPanel()
-        if menu.state == .listening || menu.state == .loading { pendingListen = false; recorder.onReady = nil; recorder.onError = nil; _ = recorder.stop(); menu.state = .idle }
+        if menu.state == .listening || menu.state == .loading { pendingListen = false; pendingFileURL = nil; recorder.onReady = nil; recorder.onError = nil; _ = recorder.stop(); menu.state = .idle }
         else if menu.state == .transcribing { menu.state = .idle }
         scheduleIdleUnload()
     }

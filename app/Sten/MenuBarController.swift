@@ -15,6 +15,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     var onListen: (() -> Void)?
     var onTranscribe: (() -> Void)?
     var onCancel: (() -> Void)?
+    var onTranscribeFile: (() -> Void)?
 
     private var hotkeyPanel: HotkeyPanel?
     private var confirmPanel: ConfirmPanel?
@@ -143,6 +144,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             let listen = NSMenuItem(title: "Listen", action: #selector(listenAction), keyEquivalent: "")
             listen.target = self; listen.isEnabled = settings.onboardingDone; configureListenHotkey(listen)
             menu.addItem(listen)
+            let fileItem = NSMenuItem(title: "Transcribe Audio File...", action: #selector(transcribeFileAction), keyEquivalent: "")
+            fileItem.target = self; fileItem.isEnabled = settings.onboardingDone
+            menu.addItem(fileItem)
         case .idle:
             menu.addItem(NSMenuItem(title: "Loading model...", action: nil, keyEquivalent: ""))
         case .listening:
@@ -197,6 +201,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func listenAction() { onListen?() }
     @objc private func transcribeAction() { onTranscribe?() }
     @objc private func cancelAction() { onCancel?() }
+    @objc private func transcribeFileAction() { onTranscribeFile?() }
     @objc private func toggleLogin() { settings.startOnLogin.toggle(); updateMenu() }
     @objc private func openAbout() { if let url = URL(string: "https://sten.vlad.studio") { NSWorkspace.shared.open(url) } }
     @objc private func checkUpdate() { UpdateChecker.check(manual: true) }
