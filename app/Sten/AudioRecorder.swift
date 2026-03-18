@@ -7,20 +7,24 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
     static let sampleRate = 16000
     static let maxDurationSeconds = 5 * 60
     private static let warmupSamples = sampleRate / 10  // 100ms
+    private static let maxSamples = sampleRate * maxDurationSeconds
+    private static let sessionKeepAliveSeconds: Double = 60
 
     private var session: AVCaptureSession?
+    private var stopTimer: DispatchWorkItem?
     private var currentDeviceID: String?
+    private var cachedConverter: AVAudioConverter?
+    private var cachedSourceFormat: AVAudioFormat?
     private var buffer: [Float] = []
     private let lock = NSLock()
-    private let maxSamples = sampleRate * maxDurationSeconds
     private var ready = false
+    private var warmupCount = 0
     private var capturing = false
     private var generation = 0
     private var loggedDropOnce = false
     private let callbackQueue = DispatchQueue(label: "audio-capture")
     private let sessionQueue = DispatchQueue(label: "session-lifecycle")
     var onLevel: ((Float) -> Void)?
-    var onReady: (() -> Void)?
     var onError: ((String) -> Void)?
 
     private lazy var targetFormat: AVAudioFormat? = {
@@ -28,7 +32,6 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
     }()
 
     /// Configure the AVCaptureSession without starting it. Call once after mic permission is granted.
-    /// The session stays configured so subsequent start() calls only need to toggle the hardware.
     func prepare() throws {
         guard session == nil else { return }
 
@@ -58,21 +61,29 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         NSLog("[STEN] session prepared, device=%@", device.localizedName)
     }
 
-    /// Begin capturing audio. Starts the session on a background queue if not already running.
+    /// Begin capturing audio. If session is already running (hot), captures immediately with no warmup.
     func start() throws {
-        teardown()
+        stopTimer?.cancel()
+        stopTimer = nil
         try prepare()
+
+        let alreadyRunning = session?.isRunning ?? false
+
         lock.lock()
         buffer.removeAll()
-        ready = false
+        ready = alreadyRunning  // skip warmup if session already hot
+        warmupCount = 0
         capturing = true
         generation += 1
         let gen = generation
         loggedDropOnce = false
         lock.unlock()
 
-        sessionQueue.async { [weak self] in
-            self?.session?.startRunning()
+        if !alreadyRunning {
+            let session = self.session
+            sessionQueue.async {
+                session?.startRunning()
+            }
         }
 
         // Watchdog: if no audio arrives within 3 seconds, fire error
@@ -88,21 +99,27 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         }
     }
 
-    /// Stop accumulating and return captured samples. Stops the session in the background.
+    /// Stop accumulating and return captured samples. Session stays running for 60s for fast restart.
     func stop() -> [Float] {
         lock.lock()
         capturing = false
         let result = buffer
         buffer.removeAll()
         lock.unlock()
-        sessionQueue.async { [weak self] in
+        stopTimer?.cancel()
+        let item = DispatchWorkItem { [weak self] in
             self?.session?.stopRunning()
+            NSLog("[STEN] session stopped after keep-alive")
         }
+        stopTimer = item
+        sessionQueue.asyncAfter(deadline: .now() + Self.sessionKeepAliveSeconds, execute: item)
         return result
     }
 
     /// Tear down the session entirely (memory pressure, app quit).
     func teardown() {
+        stopTimer?.cancel()
+        stopTimer = nil
         guard session != nil else { return }
         lock.lock()
         capturing = false
@@ -141,16 +158,16 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
 
         let count = Int(out.frameLength)
         lock.lock()
-        if buffer.count + count <= maxSamples {
+        if !ready {
+            warmupCount += count
+            if warmupCount >= Self.warmupSamples { ready = true }
+        } else if buffer.count + count <= Self.maxSamples {
             buffer.append(contentsOf: UnsafeBufferPointer(start: channelData, count: count))
         }
-        let isFirst = !ready && buffer.count >= Self.warmupSamples
-        if isFirst { ready = true; buffer.removeAll() }
         lock.unlock()
 
         let rms = sqrt(vDSP.meanSquare(UnsafeBufferPointer(start: channelData, count: count)))
         DispatchQueue.main.async { [weak self] in
-            if isFirst { self?.onReady?() }
             self?.onLevel?(rms)
         }
     }
@@ -200,10 +217,6 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
 
         return pcmBuffer
     }
-
-    // Cache converter — recreate only if source format changes
-    private var cachedConverter: AVAudioConverter?
-    private var cachedSourceFormat: AVAudioFormat?
 
     private func converterFor(_ source: AVAudioFormat, target: AVAudioFormat) -> AVAudioConverter? {
         if let cached = cachedConverter, cachedSourceFormat == source { return cached }

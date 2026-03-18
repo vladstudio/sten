@@ -16,7 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var permissionTimer: Timer?
     private var idleTimer: Timer?
     private var memorySource: DispatchSourceMemoryPressure?
-    private var pendingListen = false
+    private var pendingAudio: [Float]?
+    private var engineLoading = false
     private var pendingFileURL: URL?
     private var onboarding: OnboardingPanel?
     private var listeningPanel: ListeningPanel?
@@ -32,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Unload model and tear down audio session on memory pressure
         memorySource = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
-        memorySource?.setEventHandler { [weak self] in self?.pendingListen = false; self?.pendingFileURL = nil; self?.engine.unload(); self?.recorder.teardown() }
+        memorySource?.setEventHandler { [weak self] in self?.pendingAudio = nil; self?.pendingFileURL = nil; self?.engineLoading = false; self?.engine.unload(); self?.recorder.teardown() }
         memorySource?.resume()
 
         Settings.shared.syncLoginItem()
@@ -121,19 +122,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func loadEngineIfNeeded() {
         guard !engine.isReady else {
             menu.modelReady = true
-            if pendingListen { pendingListen = false; startListening() }
+            if let audio = pendingAudio { pendingAudio = nil; transcribeAudio(audio) }
             else if let url = pendingFileURL { pendingFileURL = nil; startFileTranscription(url) }
             return
         }
-        menu.state = .loading
+        guard !engineLoading else { return }
+        engineLoading = true
+        if menu.state != .listening { menu.state = .loading }
         Task {
             let ok = await engine.load()
             await MainActor.run {
-                menu.modelReady = ok; menu.state = .idle
-                if !ok { pendingListen = false; pendingFileURL = nil; showNotification("Model Error", "Failed to load model") }
-                else if pendingListen { pendingListen = false; startListening() }
-                else if let url = pendingFileURL { pendingFileURL = nil; startFileTranscription(url) }
-                else { scheduleIdleUnload() }
+                engineLoading = false
+                menu.modelReady = ok
+                if !ok {
+                    pendingAudio = nil; pendingFileURL = nil
+                    if menu.state == .listening { cancelOperation() }
+                    else { menu.state = .idle }
+                    showNotification("Model Error", "Failed to load model")
+                } else if let audio = pendingAudio {
+                    pendingAudio = nil; transcribeAudio(audio)
+                } else if menu.state == .listening {
+                    // Recording in progress, model now ready — nothing to do
+                } else if let url = pendingFileURL {
+                    pendingFileURL = nil; startFileTranscription(url)
+                } else {
+                    menu.state = .idle
+                    scheduleIdleUnload()
+                }
             }
         }
     }
@@ -146,11 +161,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // Start recording and show listening panel immediately for visual feedback
+    // Start recording immediately and load model in parallel if needed
     private func startListening() {
         NSLog("[STEN] startListening called, state=\(menu.state), engineReady=\(engine.isReady)")
         idleTimer?.invalidate()
-        guard engine.isReady else { pendingListen = true; loadEngineIfNeeded(); return }
         menu.state = .listening
         listeningPanel = ListeningPanel()
         listeningPanel?.onCancel = { [weak self] in self?.cancelOperation() }
@@ -173,6 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         listeningPanel?.title = AVCaptureDevice.default(for: .audio)?.localizedName ?? ""
+        if !engine.isReady { loadEngineIfNeeded() }
     }
 
     private func closeListeningPanel() {
@@ -183,12 +198,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel?.close()
     }
 
-    // Stop recording, transcribe, apply transforms, output text
+    // Stop recording, transcribe (or wait for model), apply transforms, output text
     private func stopListening() {
         NSLog("[STEN] stopListening called, state=\(menu.state)")
         recorder.onError = nil
         let audio = recorder.stop()
-        let peak = audio.map { abs($0) }.max() ?? 0
+        let peak = audio.reduce(Float(0)) { max($0, abs($1)) }
         NSLog("[STEN] audio samples=\(audio.count), minRequired=\(Self.minAudioSamples), peak=\(peak)")
         closeListeningPanel()
         guard audio.count > Self.minAudioSamples, peak > 1e-4 else {
@@ -197,6 +212,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             scheduleIdleUnload()
             return
         }
+        if engine.isReady {
+            transcribeAudio(audio)
+        } else {
+            pendingAudio = audio
+            menu.state = .loading
+        }
+    }
+
+    private func transcribeAudio(_ audio: [Float]) {
         menu.state = .transcribing
         Task.detached { [self] in
             let text = await engine.transcribe(audio)
@@ -259,7 +283,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func cancelOperation() {
         NSLog("[STEN] cancelOperation called, state=\(menu.state)")
         closeListeningPanel()
-        if menu.state == .listening || menu.state == .loading { pendingListen = false; pendingFileURL = nil; recorder.onReady = nil; recorder.onError = nil; _ = recorder.stop(); menu.state = .idle }
+        if menu.state == .listening || menu.state == .loading {
+            pendingAudio = nil
+            pendingFileURL = nil
+            recorder.onError = nil
+            _ = recorder.stop()
+            menu.state = .idle
+        }
         else if menu.state == .transcribing { menu.state = .idle }
         scheduleIdleUnload()
     }
