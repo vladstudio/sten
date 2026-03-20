@@ -13,8 +13,8 @@ A lightweight macOS menu bar app for voice-to-text transcription. Press a hotkey
 
 ## Install
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/vladstudio/sten/main/install.sh | bash
+```sh
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/vladstudio/sten/main/install.sh)"
 ```
 
 - Verifies macOS 14+ on Apple Silicon
