@@ -65,6 +65,12 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
     func start() throws {
         stopTimer?.cancel()
         stopTimer = nil
+        if session != nil,
+           let dev = AVCaptureDevice.default(for: .audio),
+           dev.uniqueID != currentDeviceID {
+            NSLog("[STEN] default device changed to %@, rebuilding session", dev.localizedName)
+            teardown()
+        }
         try prepare()
 
         let alreadyRunning = session?.isRunning ?? false
