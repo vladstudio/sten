@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pendingFileURL: URL?
     private var onboarding: OnboardingPanel?
     private var listeningPanel: ListeningPanel?
+    private var lastTranscription: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu = MenuBarController()
@@ -29,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.onTranscribe = { [weak self] in self?.stopListening() }
         menu.onCancel = { [weak self] in self?.cancelOperation() }
         menu.onTranscribeFile = { [weak self] in self?.transcribeFile() }
+        menu.onPasteAgain = { [weak self] in self?.pasteAgain() }
         setupHotkey()
 
         // Unload model and tear down audio session on memory pressure
@@ -296,11 +298,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Inject text into active app or show notification
     private func outputText(_ text: String) {
+        lastTranscription = text
+        menu.hasLastTranscription = true
         guard let app = NSWorkspace.shared.frontmostApplication, app.bundleIdentifier != Bundle.main.bundleIdentifier else {
             showNotification("Transcription", text)
             return
         }
         if !TextInjector.inject(text) { showNotification("Transcription", text) }
+    }
+
+    private func pasteAgain() {
+        guard let text = lastTranscription else { return }
+        outputText(text)
     }
 
     // Run enabled transform scripts sequentially, piping text through each
