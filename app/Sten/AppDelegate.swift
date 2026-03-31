@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboarding: OnboardingPanel?
     private var listeningPanel: ListeningPanel?
     private var lastTranscription: String?
+    private var capturedContext: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu = MenuBarController()
@@ -165,6 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Start recording immediately and load model in parallel if needed
     private func startListening() {
+        capturedContext = Settings.shared.includeContext ? ContextCapture.fromActiveApp() : nil
         NSLog("[STEN] startListening called, state=\(menu.state), engineReady=\(engine.isReady)")
         idleTimer?.invalidate()
         menu.state = .listening
@@ -327,6 +329,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             proc.executableURL = script
             var env = ProcessInfo.processInfo.environment
             env["LANG"] = "en_US.UTF-8"
+            if let ctx = capturedContext { env["STEN_CONTEXT"] = ctx }
             proc.environment = env
             let stdin = Pipe(), stdout = Pipe()
             proc.standardInput = stdin

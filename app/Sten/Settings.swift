@@ -40,6 +40,11 @@ final class Settings {
         set { write("onboarding_done", newValue) }
     }
 
+    var includeContext: Bool {
+        get { read("include_context") as? Bool ?? false }
+        set { write("include_context", newValue) }
+    }
+
     // Set of enabled transform script names
     var enabledTransforms: Set<String> {
         get { Set(read("enabled_transforms") as? [String] ?? []) }

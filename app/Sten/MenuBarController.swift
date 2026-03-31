@@ -184,6 +184,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         loginItem.target = self
         loginItem.state = settings.startOnLogin ? .on : .off
         menu.addItem(loginItem)
+        let contextItem = NSMenuItem(title: "Include Context", action: #selector(toggleContext), keyEquivalent: "")
+        contextItem.target = self
+        contextItem.state = settings.includeContext ? .on : .off
+        menu.addItem(contextItem)
         menu.addItem(.separator())
         let openFolder = NSMenuItem(title: "Open transforms folder", action: #selector(openTransformsFolder), keyEquivalent: "")
         openFolder.target = self; openFolder.tag = 999
@@ -211,6 +215,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func transcribeFileAction() { onTranscribeFile?() }
     @objc private func pasteAgainAction() { onPasteAgain?() }
     @objc private func toggleLogin() { settings.startOnLogin.toggle(); updateMenu() }
+    @objc private func toggleContext() { settings.includeContext.toggle(); updateMenu() }
     @objc private func openAbout() { if let url = URL(string: "https://sten.vlad.studio") { NSWorkspace.shared.open(url) } }
     @objc private func checkUpdate() { UpdateChecker.check(manual: true) }
 
