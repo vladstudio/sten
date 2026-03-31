@@ -35,6 +35,8 @@ A lightweight macOS menu bar app for voice-to-text transcription. Press a hotkey
 
 Place shell scripts in `~/.sten/transforms/` to process transcribed text before injection. Enable them from the menu bar.
 
+Scripts receive transcribed text on stdin and should output the processed text on stdout. When **Include Context** is enabled in the menu, the `STEN_CONTEXT` environment variable contains text from the active app's focused input (up to 1000 characters), which transforms can use for context-aware corrections.
+
 ## Build
 
 ```bash

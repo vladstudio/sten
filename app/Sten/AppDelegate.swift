@@ -166,7 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Start recording immediately and load model in parallel if needed
     private func startListening() {
-        capturedContext = Settings.shared.includeContext ? ContextCapture.fromActiveApp() : nil
+        capturedContext = Settings.shared.includeContext ? ContextCapture.capture() : nil
         NSLog("[STEN] startListening called, state=\(menu.state), engineReady=\(engine.isReady)")
         idleTimer?.invalidate()
         menu.state = .listening

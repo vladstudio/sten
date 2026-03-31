@@ -1,25 +1,45 @@
-// Captures text context from the active app via Accessibility API
+// Captures text context from the active app via Accessibility API + clipboard fallback
 import AppKit
 
 enum ContextCapture {
-    static func fromActiveApp() -> String? {
-        guard let app = NSWorkspace.shared.frontmostApplication else {
-            NSLog("[STEN] context: no frontmost app")
+    /// Try AX first (native apps), fall back to Cmd+C clipboard trick (Electron apps).
+    static func capture() -> String? {
+        textViaAX() ?? textViaClipboard()
+    }
+
+    private static func textViaAX() -> String? {
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              app.bundleIdentifier != Bundle.main.bundleIdentifier else { return nil }
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        guard let el: AXUIElement = axAttr(axApp, kAXFocusedUIElementAttribute) else { return nil }
+        let text: String? = axAttr(el, kAXValueAttribute) ?? axAttr(el, kAXSelectedTextAttribute)
+        guard let text, !text.isEmpty else { return nil }
+        return String(text.suffix(1000))
+    }
+
+    private static func textViaClipboard() -> String? {
+        let pb = NSPasteboard.general
+        let savedChangeCount = pb.changeCount
+        let savedString = pb.string(forType: .string)
+
+        let src = CGEventSource(stateID: .hidSystemState)
+        guard let down = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: true),
+              let up = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: false) else { return nil }
+        down.flags = .maskCommand
+        up.flags = .maskCommand
+        down.post(tap: .cghidEventTap)
+        up.post(tap: .cghidEventTap)
+
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1)) // keep event tap alive
+
+        guard pb.changeCount != savedChangeCount,
+              let text = pb.string(forType: .string), !text.isEmpty else {
             return nil
         }
-        let axApp = AXUIElementCreateApplication(app.processIdentifier)
-        var info: [String: String] = ["app": app.localizedName ?? ""]
-        if let win: AXUIElement = axAttr(axApp, kAXFocusedWindowAttribute) {
-            info["window"] = axAttr(win, kAXTitleAttribute)
-        }
-        if let el: AXUIElement = axAttr(axApp, kAXFocusedUIElementAttribute),
-           let text: String = axAttr(el, kAXValueAttribute), !text.isEmpty {
-            info["text"] = String(text.suffix(1000))
-        }
-        guard info.count > 1 else { NSLog("[STEN] context: only app name, skipping"); return nil }
-        let json = try? String(data: JSONSerialization.data(withJSONObject: info), encoding: .utf8)
-        NSLog("[STEN] context: %@", json ?? "nil")
-        return json
+
+        if let savedString { pb.clearContents(); pb.setString(savedString, forType: .string) }
+
+        return String(text.suffix(1000))
     }
 
     private static func axAttr<T>(_ el: AXUIElement, _ attr: String) -> T? {
