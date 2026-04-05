@@ -37,6 +37,9 @@ final class HotkeyManager {
             let modsMatch = isModKey || flags == mgr.modifiers
 
             // Track press/release and fire callback on release
+            if isDown && modsMatch {
+                if let pt = mgr.pressTime, Date().timeIntervalSince(pt) > 2.0 { mgr.pressTime = nil }
+            }
             if isDown && mgr.pressTime == nil && modsMatch {
                 mgr.pressTime = Date()
                 return nil  // Consume event

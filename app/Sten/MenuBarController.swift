@@ -22,6 +22,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private var hotkeyPanel: HotkeyPanel?
     private var confirmPanel: ConfirmPanel?
     private var permissionsMode = false
+    private var iconCache: [String: NSImage] = [:]
 
     override init() {
         super.init()
@@ -73,9 +74,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     private func loadIcon(_ name: String) -> NSImage? {
+        if let cached = iconCache[name] { return cached }
         guard let url = Bundle.main.url(forResource: name, withExtension: "png"),
               let img = NSImage(contentsOf: url) else { return nil }
         img.size = NSSize(width: 18, height: 18)
+        iconCache[name] = img
         return img
     }
 
@@ -217,7 +220,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func toggleLogin() { settings.startOnLogin.toggle(); updateMenu() }
     @objc private func toggleContext() { settings.includeContext.toggle(); updateMenu() }
     @objc private func openAbout() { if let url = URL(string: "https://sten.vlad.studio") { NSWorkspace.shared.open(url) } }
-    @objc private func checkUpdate() { UpdateChecker.check(manual: true) }
+    @objc private func checkUpdate() { StenUpdater.check(manual: true) }
 
     static let transformsDir = Settings.stenDir.appendingPathComponent("transforms")
 

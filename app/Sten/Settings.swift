@@ -1,10 +1,13 @@
-// Persistent user preferences backed by ~/.sten/config.json
+// Persistent user preferences backed by ~/.config/sten/config.json
 import Foundation
-import ServiceManagement
+import MacAppKit
 
 final class Settings {
     static let shared = Settings()
-    static let stenDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".sten")
+    static let stenDir: URL = {
+        ConfigDir.migrateDirectory(from: "~/.sten", to: "sten")
+        return ConfigDir.url(for: "sten")
+    }()
     static let configFile = stenDir.appendingPathComponent("config.json")
 
     // Launch at login — config.json is source of truth, SMAppService is side-effect only
@@ -12,17 +15,17 @@ final class Settings {
         get { read("start_on_login") as? Bool ?? false }
         set {
             write("start_on_login", newValue)
-            try? newValue ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister()
+            if newValue { LoginItem.enable() } else { LoginItem.disable() }
         }
     }
 
     func syncLoginItem() {
-        try? startOnLogin ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister()
+        if startOnLogin { LoginItem.enable() } else { LoginItem.disable() }
     }
 
     // Global hotkey settings (keycode + modifiers)
     var hotkeyCode: UInt16 {
-        get { (read("hotkey_code") as? Int).map { UInt16(clamping: $0) }?.or(49) ?? 49 }
+        get { (read("hotkey_code") as? Int).map { UInt16(clamping: $0) } ?? 49 }
         set { write("hotkey_code", Int(newValue)); write("hotkey_set", true) }
     }
 
@@ -56,23 +59,24 @@ final class Settings {
 
     // MARK: - Private
 
-    private func read(_ key: String) -> Any? {
-        guard let data = try? Data(contentsOf: Self.configFile),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
-        return json[key]
+    private var cache: [String: Any]?
+
+    private func load() -> [String: Any] {
+        if let cache { return cache }
+        let dict = (try? Data(contentsOf: Self.configFile))
+            .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+        cache = dict
+        return dict
     }
 
+    private func read(_ key: String) -> Any? { load()[key] }
+
     private func write(_ key: String, _ value: Any) {
-        let fm = FileManager.default
-        try? fm.createDirectory(at: Self.stenDir, withIntermediateDirectories: true)
-        var config: [String: Any] = [:]
-        if let data = try? Data(contentsOf: Self.configFile),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] { config = json }
+        var config = load()
         config[key] = value
+        cache = config
         if let data = try? JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys]) {
             try? data.write(to: Self.configFile)
         }
     }
 }
-
-private extension UInt16 { func or(_ d: UInt16) -> UInt16 { self != 0 ? self : d } }

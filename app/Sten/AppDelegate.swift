@@ -1,6 +1,7 @@
 // Main app coordinator - manages recording, transcription, permissions, and UI state
 import AppKit
 import AVFoundation
+import MacAppKit
 import UniformTypeIdentifiers
 import UserNotifications
 
@@ -23,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var listeningPanel: ListeningPanel?
     private var lastTranscription: String?
     private var capturedContext: String?
+    private var transcriptionGeneration = 0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu = MenuBarController()
@@ -40,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         memorySource?.resume()
 
         Settings.shared.syncLoginItem()
-        if Settings.shared.onboardingDone { checkPermissionsAndUpdateMenu(); UpdateChecker.check() }
+        if Settings.shared.onboardingDone { checkPermissionsAndUpdateMenu(); StenUpdater.check() }
         else { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.showOnboarding() } }
     }
 
@@ -71,8 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Check mic + accessibility permissions, show appropriate UI
     @objc func checkPermissionsAndUpdateMenu() {
-        let micGranted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
-        let accessibilityGranted = AXIsProcessTrusted()
+        let micGranted = Permissions.isGranted(.microphone)
+        let accessibilityGranted = Permissions.isGranted(.accessibility)
         if !micGranted || !accessibilityGranted {
             hotkey.stop()
             menu.showPermissionsRequired(mic: !micGranted, accessibility: !accessibilityGranted)
@@ -100,10 +102,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func grantPermissions() {
-        AVCaptureDevice.requestAccess(for: .audio) { [weak self] _ in
-            DispatchQueue.main.async { self?.checkPermissionsAndUpdateMenu() }
-        }
-        AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary)
+        Permissions.request(.microphone)
+        Permissions.request(.accessibility)
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             self?.checkPermissionsAndUpdateMenu()
         }
@@ -226,11 +226,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func transcribeAudio(_ audio: [Float]) {
         menu.state = .transcribing
+        transcriptionGeneration += 1
+        let gen = transcriptionGeneration
+        let context = capturedContext
         Task.detached { [self] in
             let text = await engine.transcribe(audio)
             NSLog("[STEN] transcription result: \(text ?? "nil")")
-            let transformed = text.flatMap { t in t.isEmpty ? nil : applyTransforms(t) }
+            let transformed = text.flatMap { t in t.isEmpty ? nil : applyTransforms(t, context: context) }
             await MainActor.run {
+                guard gen == transcriptionGeneration else { return }
                 menu.state = .idle
                 scheduleIdleUnload()
                 if let transformed { outputText(transformed) }
@@ -262,11 +266,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startFileTranscription(_ url: URL) {
         menu.state = .transcribing
+        transcriptionGeneration += 1
+        let gen = transcriptionGeneration
+        let context = capturedContext
         Task.detached { [self] in
             let text = await engine.transcribe(url)
             NSLog("[STEN] file transcription result length: \(text?.count ?? 0)")
-            let transformed = text.flatMap { t in t.isEmpty ? nil : applyTransforms(t) }
+            let transformed = text.flatMap { t in t.isEmpty ? nil : applyTransforms(t, context: context) }
             await MainActor.run {
+                guard gen == transcriptionGeneration else { return }
                 menu.state = .idle
                 scheduleIdleUnload()
                 guard let transformed else {
@@ -286,6 +294,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func cancelOperation() {
         NSLog("[STEN] cancelOperation called, state=\(menu.state)")
+        transcriptionGeneration += 1
         closeListeningPanel()
         if menu.state == .listening || menu.state == .loading {
             pendingAudio = nil
@@ -315,7 +324,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // Run enabled transform scripts sequentially, piping text through each
-    private func applyTransforms(_ text: String) -> String {
+    private func applyTransforms(_ text: String, context: String?) -> String {
         let dir = MenuBarController.transformsDir
         let enabled = Settings.shared.enabledTransforms
         guard !enabled.isEmpty else { return text }
@@ -329,7 +338,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             proc.executableURL = script
             var env = ProcessInfo.processInfo.environment
             env["LANG"] = "en_US.UTF-8"
-            if let ctx = capturedContext { env["STEN_CONTEXT"] = ctx }
+            if let ctx = context { env["STEN_CONTEXT"] = ctx }
             proc.environment = env
             let stdin = Pipe(), stdout = Pipe()
             proc.standardInput = stdin
