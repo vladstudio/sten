@@ -3,25 +3,29 @@ import FluidAudio
 import Foundation
 
 final class TranscriptionEngine {
+    static let modelDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("FluidAudio/Models")
+
     private var models: AsrModels?
     private var manager: AsrManager?
     private(set) var isReady = false
     private var isLoading = false
 
-    // Download and initialize the speech model
+    // Download and initialize the speech model. State changes happen on MainActor.
     func load() async -> Bool {
         guard !isReady, !isLoading else { return isReady }
         isLoading = true
-        defer { isLoading = false }
         do {
-            models = try await AsrModels.downloadAndLoad(version: .v3)
-            guard let m = models else { return false }
+            let m = try await AsrModels.downloadAndLoad(version: .v3)
             let mgr = AsrManager(config: .default)
             try await mgr.initialize(models: m)
-            manager = mgr
-            isReady = true
+            await MainActor.run { [m, mgr] in
+                self.models = m
+                self.manager = mgr
+                self.isReady = true
+                self.isLoading = false
+            }
             return true
-        } catch { return false }
+        } catch { isLoading = false; return false }
     }
 
     // Transcribe audio samples to text

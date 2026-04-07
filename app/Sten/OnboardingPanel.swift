@@ -176,7 +176,7 @@ final class OnboardingPanel: NSPanel {
         require 'json'; require 'net/http'; require 'uri'
         CUSTOM_WORDS = "Sten"
         PROMPT = "You are given a speech-to-text transcription. Correct grammar, spelling, and misrecognized words based on context. Correct these special words or their misspellings to exact spellings: <text>#{CUSTOM_WORDS}</text>. Consider nearby text: <text>#{ENV['STEN_CONTEXT']}</text>. OUTPUT ONLY THE CORRECTED TEXT. Transcription: "
-        config = JSON.parse(File.read(File.join(Dir.home, '.sten', 'config.json'))) rescue {}
+        config = JSON.parse(File.read('\(Settings.configFile.path)')) rescue {}
         api_key = config['\(p.configKey)'] || ENV['\(p.envKey)']
         text = STDIN.read
         exit 1 if text.empty?

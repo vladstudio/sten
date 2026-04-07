@@ -237,9 +237,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         NSWorkspace.shared.open(Self.transformsDir)
     }
 
-    private func modelDirectory() -> URL? {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("FluidAudio/Models")
-    }
+    private func modelDirectory() -> URL? { TranscriptionEngine.modelDirectory }
 
     private func modelSizeMB() -> Int? {
         guard let dir = modelDirectory(), FileManager.default.fileExists(atPath: dir.path) else { return nil }

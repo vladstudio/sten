@@ -5,7 +5,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Sten</string>
 	<key>CFBundleIconFile</key>
-	<string>Sten</string>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>studio.vlad.sten</string>
 	<key>CFBundleName</key>
@@ -16,7 +16,11 @@
 	<string>1.28</string>
 	<key>CFBundleVersion</key>
 	<string>1.28</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>15.0</string>
 	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Sten needs microphone access for voice input.</string>

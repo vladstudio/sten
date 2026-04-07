@@ -13,15 +13,13 @@ A lightweight macOS menu bar app for voice-to-text transcription. Press a hotkey
 
 ## Install
 
+[Download Sten.zip](https://github.com/vladstudio/sten/releases/latest/download/Sten.zip), unzip, and move to Applications.
+
+Or via terminal:
+
 ```sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/vladstudio/sten/main/install.sh)"
 ```
-
-- Verifies macOS 14+ on Apple Silicon
-- Downloads the latest release from GitHub
-- Installs to `/Applications` (replaces existing version)
-- Removes quarantine flag so the unsigned app can run
-- Opens the app
 
 ## Usage
 

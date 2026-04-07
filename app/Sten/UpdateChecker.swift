@@ -1,48 +1,8 @@
-// Checks GitHub releases for updates and prompts user to install
-import AppKit
+// Re-exports shared UpdateChecker with Sten-specific defaults
+import MacAppKit
 
-enum UpdateChecker {
-    static let repo = "vladstudio/sten"
-
+enum StenUpdater {
     static func check(manual: Bool = false) {
-        let url = URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            guard let data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let tag = json["tag_name"] as? String,
-                  let assets = json["assets"] as? [[String: Any]],
-                  assets.contains(where: { ($0["name"] as? String)?.hasSuffix(".zip") == true })
-            else { return }
-            let latest = tag.trimmingCharacters(in: CharacterSet(charactersIn: "v"))
-            let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
-            DispatchQueue.main.async {
-                if latest.compare(current, options: .numeric) == .orderedDescending { promptUpdate(latest) }
-                else if manual { showUpToDate() }
-            }
-        }.resume()
-    }
-
-    static func showUpToDate() {
-        let alert = NSAlert()
-        alert.messageText = "You're up to date"
-        alert.informativeText = "Sten \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "") is the latest version."
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
-    }
-
-    static func promptUpdate(_ version: String) {
-        let alert = NSAlert()
-        alert.messageText = "Update Available"
-        alert.informativeText = "Sten \(version) is ready to download and install."
-        alert.addButton(withTitle: "Update")
-        alert.addButton(withTitle: "Later")
-        if alert.runModal() == .alertFirstButtonReturn { runUpdate() }
-    }
-
-    // Run install script in Terminal and quit app
-    static func runUpdate() {
-        let script = "curl -fsSL https://raw.githubusercontent.com/\(repo)/main/install.sh | bash"
-        let osa = "tell app \"Terminal\" to do script \"\(script)\""
-        Process.launchedProcess(launchPath: "/usr/bin/osascript", arguments: ["-e", osa])
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+        UpdateChecker.check(repo: "vladstudio/sten", appName: "Sten", manual: manual)
     }
 }

@@ -38,7 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Unload model and tear down audio session on memory pressure
         memorySource = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
-        memorySource?.setEventHandler { [weak self] in self?.pendingAudio = nil; self?.pendingFileURL = nil; self?.engineLoading = false; self?.engine.unload(); self?.recorder.teardown() }
+        memorySource?.setEventHandler { [weak self] in
+            DispatchQueue.main.async { self?.pendingAudio = nil; self?.pendingFileURL = nil; self?.engineLoading = false; self?.engine.unload(); self?.recorder.teardown() }
+        }
         memorySource?.resume()
 
         Settings.shared.syncLoginItem()
@@ -229,15 +231,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         transcriptionGeneration += 1
         let gen = transcriptionGeneration
         let context = capturedContext
-        Task.detached { [self] in
+        Task { [weak self] in
+            guard let self else { return }
             let text = await engine.transcribe(audio)
             NSLog("[STEN] transcription result: \(text ?? "nil")")
-            let transformed = text.flatMap { t in t.isEmpty ? nil : applyTransforms(t, context: context) }
+            let transformed: String?
+            if let t = text, !t.isEmpty {
+                transformed = await withCheckedContinuation { cont in
+                    DispatchQueue.global().async { cont.resume(returning: self.applyTransforms(t, context: context)) }
+                }
+            } else { transformed = nil }
             await MainActor.run {
-                guard gen == transcriptionGeneration else { return }
-                menu.state = .idle
-                scheduleIdleUnload()
-                if let transformed { outputText(transformed) }
+                guard gen == self.transcriptionGeneration else { return }
+                self.menu.state = .idle
+                self.scheduleIdleUnload()
+                if let transformed { self.outputText(transformed) }
                 else { NSLog("[STEN] no output — text was nil or empty") }
             }
         }
@@ -268,25 +276,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.state = .transcribing
         transcriptionGeneration += 1
         let gen = transcriptionGeneration
-        let context = capturedContext
-        Task.detached { [self] in
+        Task { [weak self] in
+            guard let self else { return }
             let text = await engine.transcribe(url)
             NSLog("[STEN] file transcription result length: \(text?.count ?? 0)")
-            let transformed = text.flatMap { t in t.isEmpty ? nil : applyTransforms(t, context: context) }
+            let transformed: String?
+            if let t = text, !t.isEmpty {
+                transformed = await withCheckedContinuation { cont in
+                    DispatchQueue.global().async { cont.resume(returning: self.applyTransforms(t, context: nil)) }
+                }
+            } else { transformed = nil }
             await MainActor.run {
-                guard gen == transcriptionGeneration else { return }
-                menu.state = .idle
-                scheduleIdleUnload()
+                guard gen == self.transcriptionGeneration else { return }
+                self.menu.state = .idle
+                self.scheduleIdleUnload()
                 guard let transformed else {
-                    showNotification("Transcription Failed", "Could not transcribe \(url.lastPathComponent)")
+                    self.showNotification("Transcription Failed", "Could not transcribe \(url.lastPathComponent)")
                     return
                 }
                 let outURL = url.deletingPathExtension().appendingPathExtension("txt")
                 do {
                     try transformed.write(to: outURL, atomically: true, encoding: .utf8)
-                    showNotification("Transcription Complete", outURL.lastPathComponent)
+                    self.showNotification("Transcription Complete", outURL.lastPathComponent)
                 } catch {
-                    showNotification("Write Failed", "Could not save \(outURL.lastPathComponent): \(error.localizedDescription)")
+                    self.showNotification("Write Failed", "Could not save \(outURL.lastPathComponent): \(error.localizedDescription)")
                 }
             }
         }
@@ -356,7 +369,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // Timeout prevents hanging on slow scripts
                 let deadline = DispatchTime.now() + Self.transformTimeoutSeconds
                 DispatchQueue.global().asyncAfter(deadline: deadline) { [weak proc] in
-                    if proc?.isRunning == true { proc?.terminate() }
+                    guard let proc, proc.isRunning else { return }
+                    proc.terminate()
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 2) { [weak proc] in
+                        if let proc, proc.isRunning { kill(proc.processIdentifier, SIGKILL) }
+                    }
                 }
                 proc.waitUntilExit()
 
@@ -378,7 +395,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func deleteModelAndQuit() {
-        if let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("FluidAudio/Models") {
+        if let dir = TranscriptionEngine.modelDirectory {
             try? FileManager.default.removeItem(at: dir)
         }
         NSApp.terminate(nil)

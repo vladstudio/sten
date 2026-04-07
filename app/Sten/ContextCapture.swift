@@ -20,7 +20,9 @@ enum ContextCapture {
     private static func textViaClipboard() -> String? {
         let pb = NSPasteboard.general
         let savedChangeCount = pb.changeCount
-        let savedString = pb.string(forType: .string)
+        let savedItems = pb.pasteboardItems?.map { item in
+            item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }
+        }
 
         let src = CGEventSource(stateID: .hidSystemState)
         guard let down = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: true),
@@ -30,14 +32,21 @@ enum ContextCapture {
         down.post(tap: .cghidEventTap)
         up.post(tap: .cghidEventTap)
 
-        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1)) // keep event tap alive
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
 
         guard pb.changeCount != savedChangeCount,
               let text = pb.string(forType: .string), !text.isEmpty else {
             return nil
         }
 
-        if let savedString { pb.clearContents(); pb.setString(savedString, forType: .string) }
+        if let savedItems {
+            pb.clearContents()
+            for itemData in savedItems {
+                let item = NSPasteboardItem()
+                for (type, data) in itemData { item.setData(data, forType: type) }
+                pb.writeObjects([item])
+            }
+        }
 
         return String(text.suffix(1000))
     }

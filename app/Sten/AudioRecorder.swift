@@ -27,9 +27,7 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
     var onLevel: ((Float) -> Void)?
     var onError: ((String) -> Void)?
 
-    private lazy var targetFormat: AVAudioFormat? = {
-        AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(Self.sampleRate), channels: 1, interleaved: false)
-    }()
+    private let targetFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(AudioRecorder.sampleRate), channels: 1, interleaved: false)
 
     /// Configure the AVCaptureSession without starting it. Call once after mic permission is granted.
     func prepare() throws {
@@ -130,11 +128,11 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         lock.lock()
         capturing = false
         buffer.removeAll()
+        cachedConverter = nil
+        cachedSourceFormat = nil
         lock.unlock()
         let s = session
         session = nil
-        cachedConverter = nil
-        cachedSourceFormat = nil
         currentDeviceID = nil
         NotificationCenter.default.removeObserver(self, name: .AVCaptureDeviceWasDisconnected, object: nil)
         sessionQueue.async { s?.stopRunning() }
@@ -225,6 +223,8 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
     }
 
     private func converterFor(_ source: AVAudioFormat, target: AVAudioFormat) -> AVAudioConverter? {
+        lock.lock()
+        defer { lock.unlock() }
         if let cached = cachedConverter, cachedSourceFormat == source { return cached }
         guard source.sampleRate > 0, source.channelCount > 0 else { return nil }
         cachedConverter = AVAudioConverter(from: source, to: target)
