@@ -5,7 +5,7 @@ import MacAppKit
 import UniformTypeIdentifiers
 import UserNotifications
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private static let idleUnloadSeconds: TimeInterval = 15 * 60
     private static let minAudioSamples = AudioRecorder.sampleRate / 2  // 0.5 seconds
     private static let transformTimeoutSeconds: TimeInterval = 30
@@ -336,54 +336,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         outputText(text)
     }
 
-    // Run enabled transform scripts sequentially, piping text through each
+    // Run enabled Tetra commands sequentially, piping text through each
     private func applyTransforms(_ text: String, context: String?) -> String {
-        let dir = MenuBarController.transformsDir
         let enabled = Settings.shared.enabledTransforms
         guard !enabled.isEmpty else { return text }
-        let scripts = enabled.sorted().compactMap { name -> URL? in
-            let url = dir.appendingPathComponent(name)
-            return FileManager.default.isExecutableFile(atPath: url.path) ? url : nil
-        }
+
+        var env: [String: String]? = nil
+        if let ctx = context { env = ["STEN_CONTEXT": ctx] }
+
         var result = text
-        for script in scripts {
-            let proc = Process()
-            proc.executableURL = script
-            var env = ProcessInfo.processInfo.environment
-            env["LANG"] = "en_US.UTF-8"
-            if let ctx = context { env["STEN_CONTEXT"] = ctx }
-            proc.environment = env
-            let stdin = Pipe(), stdout = Pipe()
-            proc.standardInput = stdin
-            proc.standardOutput = stdout
-            proc.standardError = FileHandle.nullDevice
-            defer { try? stdout.fileHandleForReading.close() }
-            do {
-                try proc.run()
-                stdin.fileHandleForWriting.write(result.data(using: .utf8) ?? Data())
-                try stdin.fileHandleForWriting.close()
-
-                // Read stdout before waitUntilExit to avoid pipe buffer deadlock
-                let outData = stdout.fileHandleForReading.readDataToEndOfFile()
-
-                // Timeout prevents hanging on slow scripts
-                let deadline = DispatchTime.now() + Self.transformTimeoutSeconds
-                DispatchQueue.global().asyncAfter(deadline: deadline) { [weak proc] in
-                    guard let proc, proc.isRunning else { return }
-                    proc.terminate()
-                    DispatchQueue.global().asyncAfter(deadline: .now() + 2) { [weak proc] in
-                        if let proc, proc.isRunning { kill(proc.processIdentifier, SIGKILL) }
-                    }
-                }
-                proc.waitUntilExit()
-
-                if proc.terminationStatus == 0, let out = String(data: outData, encoding: .utf8), !out.isEmpty {
-                    result = out.trimmingCharacters(in: .newlines)
-                }
-            } catch {
-                // Script execution failed, continue with current result
+        for command in enabled.sorted() {
+            if let output = tetraTransform(command: command, text: result, env: env) {
+                result = output
             }
         }
+        return result
+    }
+
+    private func tetraTransform(command: String, text: String, env: [String: String]?) -> String? {
+        let url = URL(string: "http://localhost:\(Settings.shared.tetraPort)/transform")!
+        var request = URLRequest(url: url, timeoutInterval: Self.transformTimeoutSeconds)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var body: [String: Any] = ["command": command, "text": text]
+        if let env { body["env"] = env }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        var result: String?
+        let sem = DispatchSemaphore(value: 0)
+        URLSession.shared.dataTask(with: request) { data, response, _ in
+            defer { sem.signal() }
+            guard let data,
+                  let http = response as? HTTPURLResponse, http.statusCode == 200,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let text = json["result"] as? String, !text.isEmpty else { return }
+            result = text
+        }.resume()
+        sem.wait()
         return result
     }
 

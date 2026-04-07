@@ -2,6 +2,8 @@
 import FluidAudio
 import Foundation
 
+extension AsrManager: @unchecked @retroactive Sendable {}
+
 final class TranscriptionEngine {
     static let modelDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("FluidAudio/Models")
 

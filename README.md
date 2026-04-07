@@ -31,36 +31,9 @@ Or via terminal:
 
 ### Text Transforms
 
-Place shell scripts in `~/.sten/transforms/` to process transcribed text before injection. Enable them from the menu bar.
+Sten uses [Tetra](https://github.com/vladstudio/tetra) for text transforms. Tetra commands in `~/.config/tetra/commands/` appear in Sten's menu bar — enable the ones you want to run on transcribed text.
 
-Scripts receive transcribed text on stdin and should output the processed text on stdout. When **Include Context** is enabled in the menu, the `STEN_CONTEXT` environment variable contains text from the active app's focused input (up to 1000 characters), which transforms can use for context-aware corrections.
-
-Example transform using a local LLM (Ollama) for grammar correction with context:
-
-```ruby
-#!/usr/bin/env ruby
-require 'json'; require 'net/http'; require 'uri'
-
-CUSTOM_WORDS = "MyApp, GitHub"
-PROMPT = "You are given a speech-to-text transcription. Correct grammar, spelling, " \
-  "and misrecognized words based on context. Correct these special words or their " \
-  "misspellings to exact spellings: <text>#{CUSTOM_WORDS}</text>. " \
-  "Consider nearby text: <text>#{ENV['STEN_CONTEXT']}</text>. " \
-  "OUTPUT ONLY THE CORRECTED TEXT. Transcription: "
-
-text = STDIN.read
-exit 1 if text.empty?
-begin
-  uri = URI("http://localhost:11434/api/generate")
-  body = { model: "qwen3.5:2b", prompt: PROMPT + text, stream: false,
-           options: { num_predict: 1024 }, think: false }.to_json
-  response = Net::HTTP.post(uri, body, 'Content-Type' => 'application/json')
-  result = JSON.parse(response.body)['response']&.strip
-  puts result || text
-rescue Errno::ECONNREFUSED
-  puts text
-end
-```
+When **Include Context** is enabled in the menu, Sten passes the `STEN_CONTEXT` environment variable (up to 1000 characters from the active app's focused input) to Tetra commands, which they can use for context-aware corrections.
 
 ## Build
 

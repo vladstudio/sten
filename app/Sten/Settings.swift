@@ -48,10 +48,15 @@ final class Settings {
         set { write("include_context", newValue) }
     }
 
-    // Set of enabled transform script names
+    // Set of enabled Tetra command names
     var enabledTransforms: Set<String> {
         get { Set(read("enabled_transforms") as? [String] ?? []) }
         set { write("enabled_transforms", Array(newValue)) }
+    }
+
+    var tetraPort: Int {
+        get { read("tetra_port") as? Int ?? 24100 }
+        set { write("tetra_port", newValue) }
     }
 
     // Write an arbitrary key into config.json (used by OnboardingPanel for API keys)

@@ -1,5 +1,6 @@
 // Menu bar icon and dropdown menu - shows app state and provides controls
 import AppKit
+import MacAppKit
 
 enum AppState { case idle, listening, transcribing, loading }
 
@@ -30,16 +31,29 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         updateMenu()
     }
 
-    // Populate transform items in main menu when opened
+    // Populate transform items from Tetra when menu opens
     func menuWillOpen(_ menu: NSMenu) {
         menu.items.filter { $0.action == #selector(toggleTransform(_:)) }.forEach { menu.removeItem($0) }
         guard let folderIndex = menu.items.firstIndex(where: { $0.tag == 999 }) else { return }
-        let scripts = Set((try? FileManager.default.contentsOfDirectory(atPath: Self.transformsDir.path))?.filter { !$0.hasPrefix(".") } ?? [])
-        for (i, name) in scripts.sorted().enumerated() {
+        for (i, name) in fetchTetraCommands().enumerated() {
             let mi = NSMenuItem(title: name, action: #selector(toggleTransform(_:)), keyEquivalent: "")
             mi.target = self; mi.state = settings.enabledTransforms.contains(name) ? .on : .off
             menu.insertItem(mi, at: folderIndex + i)
         }
+    }
+
+    private func fetchTetraCommands() -> [String] {
+        let url = URL(string: "http://localhost:\(settings.tetraPort)/commands")!
+        let request = URLRequest(url: url, timeoutInterval: 2)
+        var commands: [String] = []
+        let sem = DispatchSemaphore(value: 0)
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            defer { sem.signal() }
+            guard let data, let arr = try? JSONSerialization.jsonObject(with: data) as? [String] else { return }
+            commands = arr
+        }.resume()
+        sem.wait()
+        return commands
     }
 
     // Show permissions-required menu when mic or accessibility missing
@@ -192,7 +206,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         contextItem.state = settings.includeContext ? .on : .off
         menu.addItem(contextItem)
         menu.addItem(.separator())
-        let openFolder = NSMenuItem(title: "Open transforms folder", action: #selector(openTransformsFolder), keyEquivalent: "")
+        let openFolder = NSMenuItem(title: "Open Tetra commands folder", action: #selector(openTransformsFolder), keyEquivalent: "")
         openFolder.target = self; openFolder.tag = 999
         menu.addItem(openFolder)
         menu.addItem(.separator())
@@ -222,8 +236,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func openAbout() { if let url = URL(string: "https://sten.vlad.studio") { NSWorkspace.shared.open(url) } }
     @objc private func checkUpdate() { StenUpdater.check(manual: true) }
 
-    static let transformsDir = Settings.stenDir.appendingPathComponent("transforms")
-
     @objc private func toggleTransform(_ sender: NSMenuItem) {
         var enabled = settings.enabledTransforms
         if enabled.contains(sender.title) { enabled.remove(sender.title); sender.state = .off }
@@ -231,10 +243,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         settings.enabledTransforms = enabled
     }
 
+    private static let tetraCommandsDir = ConfigDir.url(for: "tetra").appendingPathComponent("commands")
+
     @objc private func openTransformsFolder() {
-        let fm = FileManager.default
-        try? fm.createDirectory(at: Self.transformsDir, withIntermediateDirectories: true)
-        NSWorkspace.shared.open(Self.transformsDir)
+        NSWorkspace.shared.open(Self.tetraCommandsDir)
     }
 
     private func modelDirectory() -> URL? { TranscriptionEngine.modelDirectory }

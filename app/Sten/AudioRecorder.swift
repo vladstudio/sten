@@ -55,7 +55,7 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         self.currentDeviceID = device.uniqueID
 
         NotificationCenter.default.addObserver(self, selector: #selector(deviceDisconnected(_:)),
-                                               name: .AVCaptureDeviceWasDisconnected, object: nil)
+                                               name: AVCaptureDevice.wasDisconnectedNotification, object: nil)
         NSLog("[STEN] session prepared, device=%@", device.localizedName)
     }
 
@@ -134,7 +134,7 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         let s = session
         session = nil
         currentDeviceID = nil
-        NotificationCenter.default.removeObserver(self, name: .AVCaptureDeviceWasDisconnected, object: nil)
+        NotificationCenter.default.removeObserver(self, name: AVCaptureDevice.wasDisconnectedNotification, object: nil)
         sessionQueue.async { s?.stopRunning() }
         NSLog("[STEN] session torn down")
     }
