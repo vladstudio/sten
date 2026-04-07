@@ -338,6 +338,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
 
     // Run enabled Tetra commands sequentially, piping text through each
     private func applyTransforms(_ text: String, context: String?) -> String {
+        guard Settings.shared.transformText else { return text }
         let enabled = Settings.shared.enabledTransforms
         guard !enabled.isEmpty else { return text }
 

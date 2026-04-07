@@ -48,6 +48,11 @@ final class Settings {
         set { write("include_context", newValue) }
     }
 
+    var transformText: Bool {
+        get { read("transform_text") as? Bool ?? true }
+        set { write("transform_text", newValue) }
+    }
+
     // Set of enabled Tetra command names
     var enabledTransforms: Set<String> {
         get { Set(read("enabled_transforms") as? [String] ?? []) }

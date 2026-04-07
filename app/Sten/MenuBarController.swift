@@ -24,6 +24,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private var confirmPanel: ConfirmPanel?
     private var permissionsMode = false
     private var iconCache: [String: NSImage] = [:]
+    private var commandsSubmenu: NSMenu?
 
     override init() {
         super.init()
@@ -31,15 +32,21 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         updateMenu()
     }
 
-    // Populate transform items from Tetra when menu opens
+    // Populate commands submenu from Tetra when it opens
     func menuWillOpen(_ menu: NSMenu) {
-        menu.items.filter { $0.action == #selector(toggleTransform(_:)) }.forEach { menu.removeItem($0) }
-        guard let folderIndex = menu.items.firstIndex(where: { $0.tag == 999 }) else { return }
-        for (i, name) in fetchTetraCommands().enumerated() {
-            let mi = NSMenuItem(title: name, action: #selector(toggleTransform(_:)), keyEquivalent: "")
-            mi.target = self; mi.state = settings.enabledTransforms.contains(name) ? .on : .off
-            menu.insertItem(mi, at: folderIndex + i)
+        guard menu === commandsSubmenu else { return }
+        menu.removeAllItems()
+        let commands = fetchTetraCommands()
+        for name in commands {
+            let item = NSMenuItem(title: name, action: #selector(toggleTransform(_:)), keyEquivalent: "")
+            item.target = self
+            item.state = settings.enabledTransforms.contains(name) ? .on : .off
+            menu.addItem(item)
         }
+        if !commands.isEmpty { menu.addItem(.separator()) }
+        let openFolder = NSMenuItem(title: "Open Tetra commands folder", action: #selector(openTransformsFolder), keyEquivalent: "")
+        openFolder.target = self
+        menu.addItem(openFolder)
     }
 
     private func fetchTetraCommands() -> [String] {
@@ -201,14 +208,21 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         loginItem.target = self
         loginItem.state = settings.startOnLogin ? .on : .off
         menu.addItem(loginItem)
+        menu.addItem(.separator())
+        let transformItem = NSMenuItem(title: "Transform Text", action: #selector(toggleTransformText), keyEquivalent: "")
+        transformItem.target = self
+        transformItem.state = settings.transformText ? .on : .off
+        menu.addItem(transformItem)
         let contextItem = NSMenuItem(title: "Include Context", action: #selector(toggleContext), keyEquivalent: "")
         contextItem.target = self
         contextItem.state = settings.includeContext ? .on : .off
         menu.addItem(contextItem)
-        menu.addItem(.separator())
-        let openFolder = NSMenuItem(title: "Open Tetra commands folder", action: #selector(openTransformsFolder), keyEquivalent: "")
-        openFolder.target = self; openFolder.tag = 999
-        menu.addItem(openFolder)
+        let commandsItem = NSMenuItem(title: "Commands...", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        submenu.delegate = self
+        commandsSubmenu = submenu
+        commandsItem.submenu = submenu
+        menu.addItem(commandsItem)
         menu.addItem(.separator())
         let about = NSMenuItem(title: "About Sten", action: #selector(openAbout), keyEquivalent: "")
         about.target = self
@@ -233,8 +247,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func pasteAgainAction() { onPasteAgain?() }
     @objc private func toggleLogin() { settings.startOnLogin.toggle(); updateMenu() }
     @objc private func toggleContext() { settings.includeContext.toggle(); updateMenu() }
-    @objc private func openAbout() { if let url = URL(string: "https://sten.vlad.studio") { NSWorkspace.shared.open(url) } }
+    @objc private func openAbout() { if let url = URL(string: "https://apps.vlad.studio/sten") { NSWorkspace.shared.open(url) } }
     @objc private func checkUpdate() { StenUpdater.check(manual: true) }
+
+    @objc private func toggleTransformText() { settings.transformText.toggle(); updateMenu() }
 
     @objc private func toggleTransform(_ sender: NSMenuItem) {
         var enabled = settings.enabledTransforms
