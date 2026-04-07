@@ -41,11 +41,12 @@ enum ContextCapture {
 
         if let savedItems {
             pb.clearContents()
-            for itemData in savedItems {
+            let items = savedItems.map { itemData -> NSPasteboardItem in
                 let item = NSPasteboardItem()
                 for (type, data) in itemData { item.setData(data, forType: type) }
-                pb.writeObjects([item])
+                return item
             }
+            pb.writeObjects(items)
         }
 
         return String(text.suffix(1000))

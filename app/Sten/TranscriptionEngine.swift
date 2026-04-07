@@ -27,7 +27,7 @@ final class TranscriptionEngine {
                 self.isLoading = false
             }
             return true
-        } catch { isLoading = false; return false }
+        } catch { await MainActor.run { self.isLoading = false }; return false }
     }
 
     // Transcribe audio samples to text

@@ -365,12 +365,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
 
         var result: String?
         let sem = DispatchSemaphore(value: 0)
-        URLSession.shared.dataTask(with: request) { data, response, _ in
+        URLSession.shared.dataTask(with: request) { data, response, error in
             defer { sem.signal() }
             guard let data,
                   let http = response as? HTTPURLResponse, http.statusCode == 200,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let text = json["result"] as? String, !text.isEmpty else { return }
+                  let text = json["result"] as? String, !text.isEmpty else {
+                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                NSLog("[STEN] transform '%@' failed: status=%d error=%@", command, status, error?.localizedDescription ?? "bad response")
+                return
+            }
             result = text
         }.resume()
         sem.wait()

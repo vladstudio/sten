@@ -51,7 +51,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     private func fetchTetraCommands() -> [String] {
         let url = URL(string: "http://localhost:\(settings.tetraPort)/commands")!
-        let request = URLRequest(url: url, timeoutInterval: 2)
+        let request = URLRequest(url: url, timeoutInterval: 0.3)
         var commands: [String] = []
         let sem = DispatchSemaphore(value: 0)
         URLSession.shared.dataTask(with: request) { data, _, _ in
