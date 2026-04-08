@@ -20,8 +20,19 @@ enum ContextCapture {
     private static func textViaClipboard() -> String? {
         let pb = NSPasteboard.general
         let savedChangeCount = pb.changeCount
-        let savedItems = pb.pasteboardItems?.map { item in
+        let saved = pb.pasteboardItems?.map { item in
             item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }
+        }
+
+        defer {
+            if let saved {
+                pb.clearContents()
+                pb.writeObjects(saved.map { itemData in
+                    let item = NSPasteboardItem()
+                    for (type, data) in itemData { item.setData(data, forType: type) }
+                    return item
+                })
+            }
         }
 
         let src = CGEventSource(stateID: .hidSystemState)
@@ -32,23 +43,13 @@ enum ContextCapture {
         down.post(tap: .cghidEventTap)
         up.post(tap: .cghidEventTap)
 
-        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+        for _ in 0..<5 {
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.02))
+            if pb.changeCount != savedChangeCount { break }
+        }
 
         guard pb.changeCount != savedChangeCount,
-              let text = pb.string(forType: .string), !text.isEmpty else {
-            return nil
-        }
-
-        if let savedItems {
-            pb.clearContents()
-            let items = savedItems.map { itemData -> NSPasteboardItem in
-                let item = NSPasteboardItem()
-                for (type, data) in itemData { item.setData(data, forType: type) }
-                return item
-            }
-            pb.writeObjects(items)
-        }
-
+              let text = pb.string(forType: .string), !text.isEmpty else { return nil }
         return String(text.suffix(1000))
     }
 

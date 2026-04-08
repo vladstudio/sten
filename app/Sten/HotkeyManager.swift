@@ -55,7 +55,7 @@ final class HotkeyManager {
         var mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
         if isModifierKey { mask |= (1 << CGEventType.flagsChanged.rawValue) }
         tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
-                                eventsOfInterest: CGEventMask(mask), callback: cb, userInfo: Unmanaged.passUnretained(self).toOpaque())
+                                eventsOfInterest: CGEventMask(mask), callback: cb, userInfo: Unmanaged.passRetained(self).toOpaque())
         guard let tap else {
             onTapFailed?()
             return
@@ -80,7 +80,10 @@ final class HotkeyManager {
     }
 
     func stop() {
-        if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
+        if let tap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            Unmanaged.passUnretained(self).release()
+        }
         if let src = runLoopSource { CFRunLoopRemoveSource(CFRunLoopGetCurrent(), src, .commonModes) }
         tap = nil
         runLoopSource = nil

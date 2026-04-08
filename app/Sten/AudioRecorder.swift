@@ -26,6 +26,7 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
     private let sessionQueue = DispatchQueue(label: "session-lifecycle")
     var onLevel: ((Float) -> Void)?
     var onError: ((String) -> Void)?
+    var onMaxDuration: (() -> Void)?
 
     private let targetFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(AudioRecorder.sampleRate), channels: 1, interleaved: false)
 
@@ -167,6 +168,11 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
             if warmupCount >= Self.warmupSamples { ready = true }
         } else if buffer.count + count <= Self.maxSamples {
             buffer.append(contentsOf: UnsafeBufferPointer(start: channelData, count: count))
+        } else {
+            capturing = false
+            lock.unlock()
+            DispatchQueue.main.async { [weak self] in self?.onMaxDuration?() }
+            return
         }
         lock.unlock()
 

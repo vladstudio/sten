@@ -86,7 +86,7 @@ final class Settings {
         config[key] = value
         cache = config
         if let data = try? JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys]) {
-            try? data.write(to: Self.configFile)
+            try? data.write(to: Self.configFile, options: .atomic)
         }
     }
 }

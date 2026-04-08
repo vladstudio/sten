@@ -176,6 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         listeningPanel?.onCancel = { [weak self] in self?.cancelOperation() }
         listeningPanel?.onTranscribe = { [weak self] in self?.stopListening() }
         recorder.onLevel = { [weak self] in self?.listeningPanel?.addLevel($0) }
+        recorder.onMaxDuration = { [weak self] in self?.stopListening() }
         if let btn = menu.statusButton, let w = btn.window { listeningPanel?.positionBelow(w.convertToScreen(btn.frame)) }
         listeningPanel?.makeKeyAndOrderFront(nil)
         recorder.onError = { [weak self] msg in
@@ -200,6 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         let panel = listeningPanel
         listeningPanel = nil
         recorder.onLevel = nil
+        recorder.onMaxDuration = nil
         panel?.onCancel = nil
         panel?.close()
     }
@@ -235,12 +237,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             guard let self else { return }
             let text = await engine.transcribe(audio)
             NSLog("[STEN] transcription result: \(text ?? "nil")")
-            let transformed: String?
-            if let t = text, !t.isEmpty {
-                transformed = await withCheckedContinuation { cont in
-                    DispatchQueue.global().async { cont.resume(returning: self.applyTransforms(t, context: context)) }
-                }
-            } else { transformed = nil }
+            let transformed = (text?.isEmpty == false) ? await self.applyTransforms(text!, context: context) : nil
             await MainActor.run {
                 guard gen == self.transcriptionGeneration else { return }
                 self.menu.state = .idle
@@ -280,12 +277,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             guard let self else { return }
             let text = await engine.transcribe(url)
             NSLog("[STEN] file transcription result length: \(text?.count ?? 0)")
-            let transformed: String?
-            if let t = text, !t.isEmpty {
-                transformed = await withCheckedContinuation { cont in
-                    DispatchQueue.global().async { cont.resume(returning: self.applyTransforms(t, context: nil)) }
-                }
-            } else { transformed = nil }
+            let transformed = (text?.isEmpty == false) ? await self.applyTransforms(text!, context: nil) : nil
             await MainActor.run {
                 guard gen == self.transcriptionGeneration else { return }
                 self.menu.state = .idle
@@ -337,48 +329,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     }
 
     // Run enabled Tetra commands sequentially, piping text through each
-    private func applyTransforms(_ text: String, context: String?) -> String {
+    private func applyTransforms(_ text: String, context: String?) async -> String {
         guard Settings.shared.transformText else { return text }
         let enabled = Settings.shared.enabledTransforms
         guard !enabled.isEmpty else { return text }
-
-        var env: [String: String]? = nil
-        if let ctx = context { env = ["STEN_CONTEXT": ctx] }
-
+        let env = context.map { ["STEN_CONTEXT": $0] }
         var result = text
         for command in enabled.sorted() {
-            if let output = tetraTransform(command: command, text: result, env: env) {
-                result = output
-            }
+            if let output = await tetraTransform(command: command, text: result, env: env) { result = output }
         }
         return result
     }
 
-    private func tetraTransform(command: String, text: String, env: [String: String]?) -> String? {
-        let url = URL(string: "http://localhost:\(Settings.shared.tetraPort)/transform")!
-        var request = URLRequest(url: url, timeoutInterval: Self.transformTimeoutSeconds)
+    private func tetraTransform(command: String, text: String, env: [String: String]?) async -> String? {
+        var request = URLRequest(url: URL(string: "http://localhost:\(Settings.shared.tetraPort)/transform")!,
+                                 timeoutInterval: Self.transformTimeoutSeconds)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var body: [String: Any] = ["command": command, "text": text]
         if let env { body["env"] = env }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-        var result: String?
-        let sem = DispatchSemaphore(value: 0)
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            defer { sem.signal() }
-            guard let data,
-                  let http = response as? HTTPURLResponse, http.statusCode == 200,
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let text = json["result"] as? String, !text.isEmpty else {
-                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-                NSLog("[STEN] transform '%@' failed: status=%d error=%@", command, status, error?.localizedDescription ?? "bad response")
-                return
-            }
-            result = text
-        }.resume()
-        sem.wait()
-        return result
+                  let result = json["result"] as? String, !result.isEmpty else { return nil }
+            return result
+        } catch {
+            NSLog("[STEN] transform '%@' failed: %@", command, error.localizedDescription)
+            return nil
+        }
     }
 
     private func showNotification(_ title: String, _ body: String) {
