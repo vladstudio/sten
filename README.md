@@ -33,7 +33,7 @@ Or via terminal:
 
 Sten uses [Tetra](https://github.com/vladstudio/tetra) for text transforms. Tetra commands in `~/.config/tetra/commands/` appear in Sten's menu bar — enable the ones you want to run on transcribed text.
 
-When **Include Context** is enabled in the menu, Sten passes the `STEN_CONTEXT` environment variable (up to 1000 characters from the active app's focused input) to Tetra commands, which they can use for context-aware corrections.
+When **Include Context** is enabled in the menu, Sten sends nearby text from the active app to Tetra as `args.context`, which `.prompt.md` commands can use for context-aware corrections.
 
 ## Build
 

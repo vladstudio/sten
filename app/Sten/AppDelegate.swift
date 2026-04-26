@@ -333,21 +333,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         guard Settings.shared.transformText else { return text }
         let enabled = Settings.shared.enabledTransforms
         guard !enabled.isEmpty else { return text }
-        let env = context.map { ["STEN_CONTEXT": $0] }
+        let args = context.map { ["context": $0] }
         var result = text
         for command in enabled.sorted() {
-            if let output = await tetraTransform(command: command, text: result, env: env) { result = output }
+            if let output = await tetraTransform(command: command, text: result, args: args) { result = output }
         }
         return result
     }
 
-    private func tetraTransform(command: String, text: String, env: [String: String]?) async -> String? {
+    private func tetraTransform(command: String, text: String, args: [String: String]?) async -> String? {
         var request = URLRequest(url: URL(string: "http://localhost:\(Settings.shared.tetraPort)/transform")!,
                                  timeoutInterval: Self.transformTimeoutSeconds)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var body: [String: Any] = ["command": command, "text": text]
-        if let env { body["env"] = env }
+        if let args { body["args"] = args }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
