@@ -8,7 +8,7 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
     static let maxDurationSeconds = 5 * 60
     private static let warmupSamples = sampleRate / 10  // 100ms
     private static let maxSamples = sampleRate * maxDurationSeconds
-    private static let sessionKeepAliveSeconds: Double = 60
+    private static let sessionKeepAliveSeconds: Double = 180
 
     private var session: AVCaptureSession?
     private var stopTimer: DispatchWorkItem?
