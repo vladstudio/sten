@@ -5,7 +5,7 @@ let package = Package(
     name: "Sten",
     platforms: [.macOS(.v15)],
     dependencies: [
-        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.14.0"),
+        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.14.7"),
         .package(path: "../app-kit"),
     ],
     targets: [
