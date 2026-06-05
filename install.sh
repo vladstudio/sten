@@ -24,7 +24,19 @@ need codesign
 need plutil
 
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+BACKUP="$TMP/$APP_NAME.backup.app"
+cleanup() {
+  local status=$?
+  set +e
+  if [ $status -ne 0 ] && [ -d "$BACKUP" ]; then
+    echo "==> Restoring previous $APP_NAME"
+    run_privileged rm -rf "$APP_PATH"
+    run_privileged mv "$BACKUP" "$APP_PATH"
+  fi
+  rm -rf "$TMP"
+  exit $status
+}
+trap cleanup EXIT
 ZIP_PATH="$TMP/$ASSET_NAME"
 EXTRACT_DIR="$TMP/extract"
 EXTRACTED_APP="$EXTRACT_DIR/$APP_NAME.app"
@@ -49,11 +61,9 @@ fi
 
 echo "==> Installing to $INSTALL_DIR"
 pkill -x "$APP_NAME" 2>/dev/null || true
-BACKUP="$TMP/$APP_NAME.backup.app"
 [ ! -d "$APP_PATH" ] || run_privileged mv "$APP_PATH" "$BACKUP"
 run_privileged ditto "$EXTRACTED_APP" "$APP_PATH" || {
   run_privileged rm -rf "$APP_PATH"
-  [ ! -d "$BACKUP" ] || run_privileged mv "$BACKUP" "$APP_PATH"
   die "Install failed"
 }
 run_privileged rm -rf "$BACKUP"

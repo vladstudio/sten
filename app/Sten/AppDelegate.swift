@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private var capturedContext: String?
     private var transcriptionGeneration = 0
     private var pausedMedia = false
+    private var mediaResumeWorkItem: DispatchWorkItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu = MenuBarController()
@@ -169,6 +170,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
 
     // Start recording immediately and load model in parallel if needed
     private func startListening() {
+        mediaResumeWorkItem?.cancel()
+        mediaResumeWorkItem = nil
         capturedContext = Settings.shared.includeContext ? ContextCapture.capture() : nil
         NSLog("[STEN] startListening called, state=\(menu.state), engineReady=\(engine.isReady)")
         idleTimer?.invalidate()
@@ -305,15 +308,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         NSLog("[STEN] cancelOperation called, state=\(menu.state)")
         transcriptionGeneration += 1
         closeListeningPanel()
-        if menu.state == .listening || menu.state == .loading {
+        if menu.state == .listening {
             pendingAudio = nil
             pendingFileURL = nil
             recorder.onError = nil
             _ = recorder.stop(keepAlive: Settings.shared.keepMicActiveAfterStart)
             resumeMedia()
             menu.state = .idle
-        }
-        else if menu.state == .transcribing { menu.state = .idle }
+        } else if menu.state == .loading {
+            pendingAudio = nil
+            pendingFileURL = nil
+            menu.state = .idle
+        } else if menu.state == .transcribing { menu.state = .idle }
         scheduleIdleUnload()
     }
 
@@ -334,8 +340,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     }
 
     private func resumeMedia() {
-        MediaPlayback.resume(pausedMedia)
+        mediaResumeWorkItem?.cancel()
+        guard pausedMedia else { return }
         pausedMedia = false
+        let item = DispatchWorkItem { MediaPlayback.resume(true) }
+        mediaResumeWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: item)
     }
 
     func releaseHeldMicIfNeeded() {
