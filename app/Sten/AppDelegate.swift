@@ -338,6 +338,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         pausedMedia = false
     }
 
+    func releaseHeldMicIfNeeded() {
+        recorder.releaseKeepAliveIfNeeded()
+    }
+
     // Run enabled Tetra commands sequentially, piping text through each
     private func applyTransforms(_ text: String, context: String?) async -> String {
         guard Settings.shared.transformText else { return text }

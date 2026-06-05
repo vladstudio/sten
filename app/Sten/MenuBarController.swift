@@ -254,7 +254,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func transcribeFileAction() { onTranscribeFile?() }
     @objc private func pasteAgainAction() { onPasteAgain?() }
     @objc private func toggleLogin() { settings.startOnLogin.toggle(); updateMenu() }
-    @objc private func toggleKeepMicActive() { settings.keepMicActiveAfterStart.toggle(); updateMenu() }
+    @objc private func toggleKeepMicActive() {
+        settings.keepMicActiveAfterStart.toggle()
+        if !settings.keepMicActiveAfterStart { appDelegate?.releaseHeldMicIfNeeded() }
+        updateMenu()
+    }
     @objc private func togglePauseMedia() { settings.pauseMediaWhileListening.toggle(); updateMenu() }
     @objc private func toggleContext() { settings.includeContext.toggle(); updateMenu() }
     @objc private func openAbout() { if let url = URL(string: "https://apps.vlad.studio/sten") { NSWorkspace.shared.open(url) } }

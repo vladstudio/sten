@@ -127,6 +127,17 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         return result
     }
 
+    func releaseKeepAliveIfNeeded() {
+        lock.lock()
+        let shouldStop = !capturing && stopTimer != nil
+        lock.unlock()
+        guard shouldStop else { return }
+        stopTimer?.cancel()
+        stopTimer = nil
+        sessionQueue.sync { session?.stopRunning() }
+        NSLog("[STEN] session stopped after keep-alive toggle")
+    }
+
     /// Tear down the session entirely (memory pressure, app quit).
     func teardown() {
         stopTimer?.cancel()
