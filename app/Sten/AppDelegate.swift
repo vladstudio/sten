@@ -25,8 +25,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private var lastTranscription: String?
     private var capturedContext: String?
     private var transcriptionGeneration = 0
-    private var pausedMedia = false
-    private var mediaResumeWorkItem: DispatchWorkItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu = MenuBarController()
@@ -170,12 +168,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
 
     // Start recording immediately and load model in parallel if needed
     private func startListening() {
-        mediaResumeWorkItem?.cancel()
-        mediaResumeWorkItem = nil
         capturedContext = Settings.shared.includeContext ? ContextCapture.capture() : nil
         NSLog("[STEN] startListening called, state=\(menu.state), engineReady=\(engine.isReady)")
         idleTimer?.invalidate()
-        pausedMedia = Settings.shared.pauseMediaWhileListening ? MediaPlayback.pauseIfPlaying() : false
         menu.state = .listening
         listeningPanel = ListeningPanel()
         listeningPanel?.onCancel = { [weak self] in self?.cancelOperation() }
@@ -193,7 +188,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         do { try recorder.start() } catch {
             NSLog("[STEN] recorder.start() FAILED: \(error)")
             recorder.onError = nil
-            resumeMedia()
             closeListeningPanel()
             menu.state = .idle
             showNotification("Recording Failed", "\(error.localizedDescription)")
@@ -217,7 +211,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         NSLog("[STEN] stopListening called, state=\(menu.state)")
         recorder.onError = nil
         let audio = recorder.stop(keepAlive: Settings.shared.keepMicActiveAfterStart)
-        resumeMedia()
         let peak = audio.reduce(Float(0)) { max($0, abs($1)) }
         NSLog("[STEN] audio samples=\(audio.count), minRequired=\(Self.minAudioSamples), peak=\(peak)")
         closeListeningPanel()
@@ -313,7 +306,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             pendingFileURL = nil
             recorder.onError = nil
             _ = recorder.stop(keepAlive: Settings.shared.keepMicActiveAfterStart)
-            resumeMedia()
             menu.state = .idle
         } else if menu.state == .loading {
             pendingAudio = nil
@@ -337,15 +329,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private func pasteAgain() {
         guard let text = lastTranscription else { return }
         outputText(text)
-    }
-
-    private func resumeMedia() {
-        mediaResumeWorkItem?.cancel()
-        guard pausedMedia else { return }
-        pausedMedia = false
-        let item = DispatchWorkItem { MediaPlayback.resume(true) }
-        mediaResumeWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: item)
     }
 
     func releaseHeldMicIfNeeded() {
