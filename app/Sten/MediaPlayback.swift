@@ -4,18 +4,23 @@ import Foundation
 enum MediaPlayback {
     private typealias IsPlayingCompletion = @convention(block) (Bool) -> Void
     private typealias IsPlayingFn = @convention(c) (DispatchQueue, @escaping IsPlayingCompletion) -> Void
+    private typealias NowPlayingInfoCompletion = @convention(block) (CFDictionary?) -> Void
+    private typealias NowPlayingInfoFn = @convention(c) (DispatchQueue, @escaping NowPlayingInfoCompletion) -> Void
     private typealias SendCommandFn = @convention(c) (Int32, CFDictionary?) -> Bool
 
     private static let mediaRemote = CFBundleCreate(kCFAllocatorDefault, NSURL(fileURLWithPath: "/System/Library/PrivateFrameworks/MediaRemote.framework"))
     private static let isPlaying = load("MRMediaRemoteGetNowPlayingApplicationIsPlaying", as: IsPlayingFn.self)
+    private static let nowPlayingInfo = load("MRMediaRemoteGetNowPlayingInfo", as: NowPlayingInfoFn.self)
     private static let sendCommand = load("MRMediaRemoteSendCommand", as: SendCommandFn.self)
+    private static let playbackRateKey = loadConstant("kMRMediaRemoteNowPlayingInfoPlaybackRate")
 
     private static let playCommand: Int32 = 0
     private static let pauseCommand: Int32 = 1
     private static let playKey: Int32 = 16
 
     static func pauseIfPlaying() -> Bool {
-        if isPlayingNow(), sendCommand?(pauseCommand, nil) == true { return true }
+        guard isPlayingNow() else { return false }
+        if sendCommand?(pauseCommand, nil) == true { return true }
         sendPlayPause()
         return true
     }
@@ -27,6 +32,7 @@ enum MediaPlayback {
     }
 
     private static func isPlayingNow() -> Bool {
+        if let playing = playingFromNowPlayingInfo() { return playing }
         guard let isPlaying else { return false }
         var playing = false
         let sem = DispatchSemaphore(value: 0)
@@ -35,11 +41,36 @@ enum MediaPlayback {
         return playing
     }
 
+    private static func playingFromNowPlayingInfo() -> Bool? {
+        guard let nowPlayingInfo else { return nil }
+        var info: CFDictionary?
+        let sem = DispatchSemaphore(value: 0)
+        nowPlayingInfo(DispatchQueue.global(qos: .userInitiated)) { info = $0; sem.signal() }
+        guard sem.wait(timeout: .now() + 1) == .success,
+              let dict = info as? [String: Any] else { return nil }
+
+        if let key = playbackRateKey as String?,
+           let rate = dict[key] as? NSNumber {
+            return rate.doubleValue > 0
+        }
+        if let rate = dict["kMRMediaRemoteNowPlayingInfoPlaybackRate"] as? NSNumber {
+            return rate.doubleValue > 0
+        }
+        return nil
+    }
+
     private static func load<T>(_ name: String, as type: T.Type) -> T? {
         guard let mediaRemote else { return nil }
         CFBundleLoadExecutable(mediaRemote)
         guard let pointer = CFBundleGetFunctionPointerForName(mediaRemote, name as CFString) else { return nil }
         return unsafeBitCast(pointer, to: type)
+    }
+
+    private static func loadConstant(_ name: String) -> CFString? {
+        guard let mediaRemote else { return nil }
+        CFBundleLoadExecutable(mediaRemote)
+        guard let pointer = CFBundleGetDataPointerForName(mediaRemote, name as CFString) else { return nil }
+        return pointer.assumingMemoryBound(to: CFString.self).pointee
     }
 
     private static func sendPlayPause() {
