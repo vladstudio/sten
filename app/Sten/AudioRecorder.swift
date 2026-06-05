@@ -104,14 +104,20 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         }
     }
 
-    /// Stop accumulating and return captured samples. Session stays running for 60s for fast restart.
-    func stop() -> [Float] {
+    /// Stop accumulating and return captured samples.
+    func stop(keepAlive: Bool = true) -> [Float] {
         lock.lock()
         capturing = false
         let result = buffer
         buffer.removeAll()
         lock.unlock()
         stopTimer?.cancel()
+        stopTimer = nil
+        guard keepAlive else {
+            sessionQueue.sync { session?.stopRunning() }
+            NSLog("[STEN] session stopped after listen")
+            return result
+        }
         let item = DispatchWorkItem { [weak self] in
             self?.session?.stopRunning()
             NSLog("[STEN] session stopped after keep-alive")

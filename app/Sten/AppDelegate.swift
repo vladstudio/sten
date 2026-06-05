@@ -210,7 +210,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private func stopListening() {
         NSLog("[STEN] stopListening called, state=\(menu.state)")
         recorder.onError = nil
-        let audio = recorder.stop()
+        let audio = recorder.stop(keepAlive: Settings.shared.keepMicActiveAfterStart)
         let peak = audio.reduce(Float(0)) { max($0, abs($1)) }
         NSLog("[STEN] audio samples=\(audio.count), minRequired=\(Self.minAudioSamples), peak=\(peak)")
         closeListeningPanel()
@@ -305,7 +305,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             pendingAudio = nil
             pendingFileURL = nil
             recorder.onError = nil
-            _ = recorder.stop()
+            _ = recorder.stop(keepAlive: Settings.shared.keepMicActiveAfterStart)
             menu.state = .idle
         }
         else if menu.state == .transcribing { menu.state = .idle }

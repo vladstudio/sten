@@ -208,6 +208,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         loginItem.target = self
         loginItem.state = settings.startOnLogin ? .on : .off
         menu.addItem(loginItem)
+        let keepMicItem = NSMenuItem(title: "Keep microphone active after listening", action: #selector(toggleKeepMicActive), keyEquivalent: "")
+        keepMicItem.target = self
+        keepMicItem.state = settings.keepMicActiveAfterStart ? .on : .off
+        menu.addItem(keepMicItem)
         menu.addItem(.separator())
         let transformItem = NSMenuItem(title: "Transform Text", action: #selector(toggleTransformText), keyEquivalent: "")
         transformItem.target = self
@@ -246,6 +250,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func transcribeFileAction() { onTranscribeFile?() }
     @objc private func pasteAgainAction() { onPasteAgain?() }
     @objc private func toggleLogin() { settings.startOnLogin.toggle(); updateMenu() }
+    @objc private func toggleKeepMicActive() { settings.keepMicActiveAfterStart.toggle(); updateMenu() }
     @objc private func toggleContext() { settings.includeContext.toggle(); updateMenu() }
     @objc private func openAbout() { if let url = URL(string: "https://apps.vlad.studio/sten") { NSWorkspace.shared.open(url) } }
     @objc private func checkUpdate() { StenUpdater.check(manual: true) }

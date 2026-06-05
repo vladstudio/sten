@@ -19,6 +19,11 @@ final class Settings {
         }
     }
 
+    var keepMicActiveAfterStart: Bool {
+        get { read("keep_mic_active_after_start") as? Bool ?? true }
+        set { write("keep_mic_active_after_start", newValue) }
+    }
+
     func syncLoginItem() {
         if startOnLogin { LoginItem.enable() } else { LoginItem.disable() }
     }
