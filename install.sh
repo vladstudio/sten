@@ -1,19 +1,62 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 APP_NAME="Sten"
 REPO="vladstudio/sten"
+ASSET_NAME="$APP_NAME.zip"
+INSTALL_DIR="/Applications"
+APP_PATH="$INSTALL_DIR/$APP_NAME.app"
+
+
+die() { echo "Error: $*" >&2; exit 1; }
+need() { command -v "$1" >/dev/null 2>&1 || die "$1 is required but was not found"; }
+run_privileged() {
+  if [ -w "$INSTALL_DIR" ]; then
+    "$@"
+  else
+    sudo "$@"
+  fi
+}
+
+need curl
+need ditto
+need codesign
+need plutil
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
+ZIP_PATH="$TMP/$ASSET_NAME"
+EXTRACT_DIR="$TMP/extract"
+EXTRACTED_APP="$EXTRACT_DIR/$APP_NAME.app"
 
-URL=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" \
-  | grep browser_download_url | head -1 | cut -d'"' -f4)
-curl -sL "$URL" -o "$TMP/$APP_NAME.zip"
-unzip -q "$TMP/$APP_NAME.zip" -d "$TMP"
+mkdir -p "$EXTRACT_DIR"
 
+echo "==> Downloading $APP_NAME"
+curl -fL --retry 3 --progress-bar "https://github.com/$REPO/releases/latest/download/$ASSET_NAME" -o "$ZIP_PATH"
+
+echo "==> Extracting"
+ditto -x -k "$ZIP_PATH" "$EXTRACT_DIR"
+
+[ -d "$EXTRACTED_APP" ] || die "Downloaded archive did not contain $APP_NAME.app"
+[ -f "$EXTRACTED_APP/Contents/Info.plist" ] || die "Downloaded app bundle is missing Info.plist"
+BUNDLE_NAME=$(plutil -extract CFBundleName raw -o - "$EXTRACTED_APP/Contents/Info.plist" 2>/dev/null || true)
+[ "$BUNDLE_NAME" = "$APP_NAME" ] || die "Downloaded app bundle has unexpected name: ${BUNDLE_NAME:-missing}"
+
+codesign --verify --strict --verbose=2 "$EXTRACTED_APP"
+if command -v spctl >/dev/null 2>&1; then
+  spctl -a -t exec -vv "$EXTRACTED_APP" || die "Gatekeeper rejected $APP_NAME"
+fi
+
+echo "==> Installing to $INSTALL_DIR"
 pkill -x "$APP_NAME" 2>/dev/null || true
-rm -rf "/Applications/$APP_NAME.app"
-mv "$TMP/$APP_NAME.app" /Applications/
-open "/Applications/$APP_NAME.app"
+BACKUP="$TMP/$APP_NAME.backup.app"
+[ ! -d "$APP_PATH" ] || run_privileged mv "$APP_PATH" "$BACKUP"
+run_privileged ditto "$EXTRACTED_APP" "$APP_PATH" || {
+  run_privileged rm -rf "$APP_PATH"
+  [ ! -d "$BACKUP" ] || run_privileged mv "$BACKUP" "$APP_PATH"
+  die "Install failed"
+}
+run_privileged rm -rf "$BACKUP"
+
+open "$APP_PATH"
 echo "==> Installed $APP_NAME"
