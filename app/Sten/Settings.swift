@@ -24,6 +24,11 @@ final class Settings {
         set { write("keep_mic_active_after_start", newValue) }
     }
 
+    var pauseMediaWhileListening: Bool {
+        get { read("pause_media_while_listening") as? Bool ?? true }
+        set { write("pause_media_while_listening", newValue) }
+    }
+
     func syncLoginItem() {
         if startOnLogin { LoginItem.enable() } else { LoginItem.disable() }
     }
