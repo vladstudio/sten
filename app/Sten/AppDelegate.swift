@@ -345,7 +345,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         pausedMedia = false
         let item = DispatchWorkItem { MediaPlayback.resume(true) }
         mediaResumeWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: item)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: item)
     }
 
     func releaseHeldMicIfNeeded() {
