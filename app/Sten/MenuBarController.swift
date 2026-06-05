@@ -212,6 +212,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         keepMicItem.target = self
         keepMicItem.state = settings.keepMicActiveAfterStart ? .on : .off
         menu.addItem(keepMicItem)
+        let pauseMediaItem = NSMenuItem(title: "Pause media while listening", action: #selector(togglePauseMedia), keyEquivalent: "")
+        pauseMediaItem.target = self
+        pauseMediaItem.state = settings.pauseMediaWhileListening ? .on : .off
+        menu.addItem(pauseMediaItem)
         menu.addItem(.separator())
         let transformItem = NSMenuItem(title: "Transform Text", action: #selector(toggleTransformText), keyEquivalent: "")
         transformItem.target = self
@@ -251,6 +255,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func pasteAgainAction() { onPasteAgain?() }
     @objc private func toggleLogin() { settings.startOnLogin.toggle(); updateMenu() }
     @objc private func toggleKeepMicActive() { settings.keepMicActiveAfterStart.toggle(); updateMenu() }
+    @objc private func togglePauseMedia() { settings.pauseMediaWhileListening.toggle(); updateMenu() }
     @objc private func toggleContext() { settings.includeContext.toggle(); updateMenu() }
     @objc private func openAbout() { if let url = URL(string: "https://apps.vlad.studio/sten") { NSWorkspace.shared.open(url) } }
     @objc private func checkUpdate() { StenUpdater.check(manual: true) }
