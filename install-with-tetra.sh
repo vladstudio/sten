@@ -1,12 +1,14 @@
 #!/bin/bash
-set -e
+set -eu
 
 # Sten + Tetra combined installer.
 #
 # - Installs Sten (voice-to-text) and Tetra (text transforms) to /Applications
-# - Seeds ~/.config/tetra/commands/ with AI Fix + a couple of safe demos
-# - Walks the user through configuring an LLM provider (Groq/OpenAI/OpenRouter/Ollama/custom)
-# - Verifies Tetra's HTTP server is reachable before finishing
+#   by fetching and reusing sten/install.sh (single source of truth for the
+#   per-app install logic).
+# - Seeds ~/.config/tetra/commands/ with AI Fix + a couple of safe demos.
+# - Walks the user through configuring an LLM provider (Groq/OpenAI/OpenRouter/Ollama/Custom).
+# - Verifies Tetra's HTTP server is reachable before finishing.
 #
 # Usage:
 #   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/vladstudio/sten/main/install-with-tetra.sh)"
@@ -18,16 +20,41 @@ CONFIG_DIR="$HOME/.config/tetra"
 COMMANDS_DIR="$CONFIG_DIR/commands"
 CONFIG_FILE="$CONFIG_DIR/config.json"
 
-# ─── Pretty output ──────────────────────────────────────────────────────────
+# ─── Help ────────────────────────────────────────────────────────────────────
+
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<EOF
+Sten + Tetra combined installer.
+
+Installs:
+  /Applications/Sten.app
+  /Applications/Tetra.app
+  ~/.config/tetra/commands/{Uppercase.sh, Trim.sh, AI Fix.prompt.md}
+  ~/.config/tetra/config.json       (chmod 600)
+
+Network endpoints contacted:
+  https://github.com/vladstudio/sten/releases/latest/download/Sten.zip
+  https://github.com/vladstudio/tetra/releases/latest/download/Tetra.zip
+  https://raw.githubusercontent.com/vladstudio/sten/main/install.sh
+  One of: api.groq.com / api.openai.com / openrouter.ai (for key verification)
+
+After install, both apps launch and Tetra's HTTP server is verified at
+http://localhost:$PORT.
+
+EOF
+  exit 0
+fi
+
+# ─── Pretty output ───────────────────────────────────────────────────────────
 
 bold()  { printf "\033[1m%s\033[0m\n" "$*"; }
 dim()   { printf "\033[2m%s\033[0m\n" "$*"; }
 green() { printf "\033[32m✓ %s\033[0m\n" "$*"; }
 red()   { printf "\033[31m✗ %s\033[0m\n" "$*"; }
-arrow() { printf "→ %s\n" "$*"; }
+arrow() { printf "\033[36m→\033[0m %s\n" "$*"; }
 
-# Escape a string for use as a JSON string literal value (including surrounding quotes).
-# API keys are ASCII alphanumeric, but we're paranoid.
+# Wrap a string as a JSON string literal (including surrounding quotes).
+# Sufficient for ASCII API keys and URLs; not a full JSON validator.
 json_escape() {
   local s="$1"
   s="${s//\\/\\\\}"
@@ -38,7 +65,7 @@ json_escape() {
   printf '"%s"' "$s"
 }
 
-# ─── Phase 1: welcome & checks ──────────────────────────────────────────────
+# ─── Phase 1: welcome & sanity checks ────────────────────────────────────────
 
 echo
 bold "Sten + Tetra installer"
@@ -51,7 +78,11 @@ echo
 echo "Press Enter to continue, or Ctrl+C to cancel."
 read -r
 
-if ! sw_vers -productVersion | grep -qE '^(14|1[5-9])'; then
+major=$(sw_vers -productVersion | cut -d. -f1)
+case "$major" in
+  ''|*[!0-9]*) red "Could not determine macOS version."; exit 1 ;;
+esac
+if [ "$major" -lt 14 ]; then
   red "Requires macOS 14 or newer."
   exit 1
 fi
@@ -60,40 +91,28 @@ if [ "$(uname -m)" != "arm64" ]; then
   exit 1
 fi
 
-# ─── Phase 2: install both apps ─────────────────────────────────────────────
+# ─── Phase 2: install both apps via install.sh ──────────────────────────────
+# install.sh is the single source of truth for the per-app install logic.
+# We fetch it once and run it twice with different env vars.
+
+INSTALL_SH_URL="https://raw.githubusercontent.com/$STEN_REPO/main/install.sh"
+arrow "Fetching installer: $INSTALL_SH_URL"
+INSTALL_SH=$(curl -fsSL "$INSTALL_SH_URL") || {
+  red "Failed to download installer from $INSTALL_SH_URL"
+  exit 1
+}
 
 install_app() {
   local name="$1" repo="$2"
-  local app_path="/Applications/$name.app"
-  local tmp; tmp=$(mktemp -d)
-
   echo
-  arrow "Downloading $name"
-  curl -fsSL "https://github.com/$repo/releases/latest/download/$name.zip" -o "$tmp/$name.zip"
-
-  arrow "Extracting"
-  ditto -xk "$tmp/$name.zip" "$tmp"
-  if [ ! -d "$tmp/$name.app" ]; then
-    red "Archive did not contain $name.app"
-    exit 1
-  fi
-
-  pkill -x "$name" 2>/dev/null || true
-
-  local sudo=""
-  [ -w /Applications ] || sudo=sudo
-  $sudo rm -rf "$app_path"
-  $sudo ditto "$tmp/$name.app" "$app_path"
-  xattr -dr com.apple.quarantine "$app_path" 2>/dev/null || true
-
-  rm -rf "$tmp"
-  green "$name installed"
+  arrow "Installing $name"
+  APP_NAME="$name" APP_REPO="$repo" APP_OPEN=0 bash -c "$INSTALL_SH"
 }
 
-install_app "Tetra" "$TETRA_REPO"
-install_app "Sten"  "$STEN_REPO"
+install_app Tetra "$TETRA_REPO"
+install_app Sten  "$STEN_REPO"
 
-# ─── Phase 3: seed commands folder ──────────────────────────────────────────
+# ─── Phase 3: seed commands folder ───────────────────────────────────────────
 
 mkdir -p "$COMMANDS_DIR"
 
@@ -124,7 +143,7 @@ fi
 
 # AI Fix.prompt.md is written after Phase 4, once we know the llm name.
 
-# ─── Phase 4: interactive LLM configuration ─────────────────────────────────
+# ─── Phase 4: interactive LLM configuration ──────────────────────────────────
 
 mkdir -p "$CONFIG_DIR"
 
@@ -132,16 +151,58 @@ llm_name=""
 base_url=""
 model=""
 api_key=""
-overwrite=""
+overwrite="n"
 
 if [ -f "$CONFIG_FILE" ]; then
   echo
   dim "Found existing $CONFIG_FILE"
   printf "Overwrite it with a fresh config? [y/N] "
   read -r overwrite
+  case "$overwrite" in
+    [yY]*) overwrite=y ;;
+    *)     overwrite=n ;;
+  esac
 fi
 
-if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ] || [ "$overwrite" = "Y" ]; then
+# Returns 0 if key works, 1 if rejected, 2 on network error.
+# Uses curl -K (config file) to keep the key out of argv / ps output.
+verify_api_key() {
+  local key="$1" url="$2"
+  local conf; conf=$(mktemp)
+  chmod 600 "$conf"
+  printf 'header = "Authorization: Bearer %s"\n' "$key" > "$conf"
+  local code
+  code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 -K "$conf" "$url" 2>/dev/null || echo "000")
+  rm -f "$conf"
+  case "$code" in
+    200) return 0 ;;
+    401|403) return 1 ;;
+    *) return 2 ;;
+  esac
+}
+
+# Prompts for an API key for the given provider, loops until verified.
+prompt_and_verify_key() {
+  local provider_name="$1" verify_url="$2" console_url="$3"
+  echo
+  arrow "Opening $console_url in your browser..."
+  open "$console_url"
+  echo "Sign in to $provider_name, create an API key, and paste it below."
+  while true; do
+    read -s -p "API key: " api_key
+    echo
+    arrow "Testing key..."
+    local rc=0
+    verify_api_key "$api_key" "$verify_url" || rc=$?
+    case "$rc" in
+      0) green "Key works"; return 0 ;;
+      1) red "Key rejected. Try again (Ctrl+C to give up)." ;;
+      2) red "Can't reach $provider_name right now. Try again (Ctrl+C to give up)." ;;
+    esac
+  done
+}
+
+if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ]; then
   echo
   bold "Which AI provider would you like for the \"AI Fix\" transform?"
   echo "  1) Groq       — free, fast, recommended"
@@ -159,78 +220,27 @@ if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ] || [ "$overwrite" = "Y" ]; 
       llm_name="groq_llama"
       base_url="https://api.groq.com/openai/v1"
       model="llama-3.3-70b-versatile"
-      echo
-      arrow "Opening https://console.groq.com/keys in your browser..."
-      open "https://console.groq.com/keys"
-      echo "Sign in, click 'Create API Key', copy the key, and paste it below."
-      while true; do
-        read -s -p "API key: " api_key
-        echo
-        arrow "Testing key..."
-        code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 \
-                -H "Authorization: Bearer $api_key" \
-                https://api.groq.com/openai/v1/models || echo "000")
-        if [ "$code" = "200" ]; then
-          green "Key works"
-          break
-        elif [ "$code" = "401" ] || [ "$code" = "403" ]; then
-          red "Key rejected ($code). Try again (Ctrl+C to give up)."
-        else
-          red "Got HTTP $code — can't verify. Try again (Ctrl+C to give up)."
-        fi
-      done
+      prompt_and_verify_key "Groq" \
+        "https://api.groq.com/openai/v1/models" \
+        "https://console.groq.com/keys"
       ;;
 
     2)
       llm_name="openai"
       base_url="https://api.openai.com/v1"
       model="gpt-4o-mini"
-      echo
-      arrow "Opening https://platform.openai.com/api-keys in your browser..."
-      open "https://platform.openai.com/api-keys"
-      echo "Sign in, click 'Create new secret key', copy it, and paste below."
-      while true; do
-        read -s -p "API key: " api_key
-        echo
-        arrow "Testing key..."
-        code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 \
-                -H "Authorization: Bearer $api_key" \
-                https://api.openai.com/v1/models || echo "000")
-        if [ "$code" = "200" ]; then
-          green "Key works"
-          break
-        elif [ "$code" = "401" ] || [ "$code" = "403" ]; then
-          red "Key rejected ($code). Try again (Ctrl+C to give up)."
-        else
-          red "Got HTTP $code — can't verify. Try again (Ctrl+C to give up)."
-        fi
-      done
+      prompt_and_verify_key "OpenAI" \
+        "https://api.openai.com/v1/models" \
+        "https://platform.openai.com/api-keys"
       ;;
 
     3)
       llm_name="openrouter"
       base_url="https://openrouter.ai/api/v1"
       model="meta-llama/llama-3.3-70b-instruct"
-      echo
-      arrow "Opening https://openrouter.ai/keys in your browser..."
-      open "https://openrouter.ai/keys"
-      echo "Sign in, click 'Create Key', copy it, and paste below."
-      while true; do
-        read -s -p "API key: " api_key
-        echo
-        arrow "Testing key..."
-        code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 \
-                -H "Authorization: Bearer $api_key" \
-                https://openrouter.ai/api/v1/auth/key || echo "000")
-        if [ "$code" = "200" ]; then
-          green "Key works"
-          break
-        elif [ "$code" = "401" ] || [ "$code" = "403" ]; then
-          red "Key rejected ($code). Try again (Ctrl+C to give up)."
-        else
-          red "Got HTTP $code — can't verify. Try again (Ctrl+C to give up)."
-        fi
-      done
+      prompt_and_verify_key "OpenRouter" \
+        "https://openrouter.ai/api/v1/auth/key" \
+        "https://openrouter.ai/keys"
       ;;
 
     4)
@@ -239,7 +249,7 @@ if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ] || [ "$overwrite" = "Y" ]; 
       model="gemma3:4b"
       echo
       arrow "Checking for Ollama at localhost:11434..."
-      if curl -sS --max-time 2 http://localhost:11434/api/tags > /dev/null; then
+      if curl -sS --max-time 2 http://localhost:11434/api/tags > /dev/null 2>&1; then
         green "Ollama is running"
         echo "  Make sure you've pulled the model:  ollama pull $model"
       else
@@ -262,7 +272,7 @@ if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ] || [ "$overwrite" = "Y" ]; 
       echo
       ;;
 
-    6|*)
+    6)
       llm_name="groq_llama"
       base_url="https://api.groq.com/openai/v1"
       model="llama-3.3-70b-versatile"
@@ -271,14 +281,12 @@ if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ] || [ "$overwrite" = "Y" ]; 
       dim "Skipped — Tetra will start with a placeholder Groq config (no key)."
       dim "Edit $CONFIG_FILE later to add an API key."
       ;;
-  esac
 
-  # Build config.json
-  if [ -n "$api_key" ]; then
-    api_key_line=$'\n      '"\"apiKey\": $(json_escape "$api_key"),"
-  else
-    api_key_line=""
-  fi
+    *)
+      red "Invalid choice: '$choice'"
+      exit 1
+      ;;
+  esac
 
   arrow "Writing $CONFIG_FILE"
   cat > "$CONFIG_FILE" <<EOF
@@ -287,21 +295,42 @@ if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ] || [ "$overwrite" = "Y" ]; 
   "llms": {
     $(json_escape "$llm_name"): {
       "baseUrl": $(json_escape "$base_url"),
-      "model": $(json_escape "$model"),$api_key_line
+      "model": $(json_escape "$model"),
+      "apiKey": $(json_escape "$api_key"),
       "_note": "Edit this file to change providers or models."
     }
   }
 }
 EOF
+  chmod 600 "$CONFIG_FILE"
   green "Config written"
 else
   arrow "Keeping existing config"
-  # Fall back to a generic llm name for AI Fix.prompt.md.
-  # User can edit the frontmatter if theirs differs.
-  llm_name="groq_llama"
 fi
 
-# Now write AI Fix.prompt.md using $llm_name.
+# If we kept the existing config, try to detect its first LLM name so the
+# AI Fix.prompt.md frontmatter points at something that exists.
+if [ -z "$llm_name" ] && [ -f "$CONFIG_FILE" ]; then
+  detected=$(python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    names = list(d.get("llms", {}).keys())
+    if names:
+        print(names[0], end="")
+except Exception:
+    pass' < "$CONFIG_FILE" 2>/dev/null || true)
+  if [ -n "$detected" ]; then
+    llm_name="$detected"
+    dim "  Detected LLM '$llm_name' in existing config"
+  fi
+fi
+if [ -z "$llm_name" ]; then
+  llm_name="groq_llama"
+  dim "  Couldn't detect LLM; AI Fix.prompt.md will default to '$llm_name'"
+  dim "  Edit the frontmatter if your config uses a different name."
+fi
+
 if [ -f "$COMMANDS_DIR/AI Fix.prompt.md" ]; then
   dim "  exists, skipping: AI Fix.prompt.md"
 else
@@ -329,18 +358,28 @@ EOF
   green "AI Fix.prompt.md written"
 fi
 
-# ─── Phase 5: launch & verify ───────────────────────────────────────────────
+# ─── Phase 5: launch & verify ────────────────────────────────────────────────
 
 echo
 arrow "Launching Tetra"
+echo "  (grant the accessibility prompt if it appears)"
 open -a Tetra
-sleep 2
 
-if curl -sS --max-time 3 "http://localhost:$PORT/commands" > /dev/null; then
-  green "Tetra is responding at :$PORT"
-else
-  red "Tetra did not respond at :$PORT"
-  echo "  Open Tetra from the menu bar and check its settings."
+attempts=15
+tetra_ok=""
+for i in $(seq 1 $attempts); do
+  if curl -sS --max-time 1 "http://localhost:$PORT/commands" > /dev/null 2>&1; then
+    green "Tetra is responding at :$PORT"
+    tetra_ok=1
+    break
+  fi
+  sleep 1
+done
+
+if [ -z "$tetra_ok" ]; then
+  red "Tetra did not respond at :$PORT after $attempts seconds"
+  echo "  On first run, this usually means macOS is waiting for you to grant"
+  echo "  Accessibility permission. Open Tetra from the menu bar and check."
 fi
 
 arrow "Launching Sten"

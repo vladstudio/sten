@@ -96,8 +96,8 @@ It uses Parakeet TDT, a state-of-the-art model running on Apple's Neural Engine.
 
 Builds and installs to `/Applications/Sten.app`.
 
-#### License
+---
 
-MIT
+License: MIT
 
 </details>
