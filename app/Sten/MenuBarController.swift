@@ -208,7 +208,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         loginItem.target = self
         loginItem.state = settings.startOnLogin ? .on : .off
         menu.addItem(loginItem)
-        let keepMicItem = NSMenuItem(title: "Keep microphone active after listening", action: #selector(toggleKeepMicActive), keyEquivalent: "")
+        let keepMicItem = NSMenuItem(title: "Keep microphone active", action: #selector(toggleKeepMicActive), keyEquivalent: "")
         keepMicItem.target = self
         keepMicItem.state = settings.keepMicActiveAfterStart ? .on : .off
         menu.addItem(keepMicItem)
