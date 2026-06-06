@@ -19,7 +19,17 @@ Sten lives in your menu bar. Press a hotkey, speak, and your words are typed int
 
 ## Install
 
-Paste into Terminal:
+### With AI transforms (recommended)
+
+Installs both Sten and [Tetra](https://github.com/vladstudio/tetra) (the transforms engine), seeds starter commands, and walks you through configuring an LLM provider. You'll pick a provider (Groq is free and recommended), paste an API key, and the script verifies everything works end-to-end.
+
+```sh
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/vladstudio/sten/main/install-with-tetra.sh)"
+```
+
+### Just dictation
+
+Install Sten alone, no AI transforms:
 
 ```sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/vladstudio/sten/main/install.sh)"
@@ -86,7 +96,7 @@ It uses Parakeet TDT, a state-of-the-art model running on Apple's Neural Engine.
 
 Builds and installs to `/Applications/Sten.app`.
 
-## License
+#### License
 
 MIT
 
