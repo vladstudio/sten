@@ -205,12 +205,13 @@ prompt_and_verify_key() {
 if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ]; then
   echo
   bold "Which AI provider would you like for the \"AI Fix\" transform?"
-  echo "  1) Groq       — free, fast, recommended"
-  echo "  2) OpenAI     — best quality, paid"
-  echo "  3) OpenRouter — many models, paid"
-  echo "  4) Ollama     — local, no account needed"
-  echo "  5) Custom     — any OpenAI-compatible endpoint"
-  echo "  6) Skip       — configure later"
+  echo "  1) Groq       — llama-3.3-70b-versatile     (free, fast, recommended)"
+  echo "  2) OpenAI     — gpt-4o-mini                  (best quality, paid)"
+  echo "  3) OpenRouter — llama-3.3-70b-instruct       (many models, paid)"
+  echo "  4) Gemini     — gemini-2.5-flash-lite        (Google, free tier)"
+  echo "  5) Ollama     — gemma3:4b                    (local, no account needed)"
+  echo "  6) Custom     —                              (any OpenAI-compatible endpoint)"
+  echo "  7) Skip       —                              (configure later)"
   printf "Choice [1]: "
   read -r choice
   : "${choice:=1}"
@@ -244,6 +245,15 @@ if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ]; then
       ;;
 
     4)
+      llm_name="gemini"
+      base_url="https://generativelanguage.googleapis.com/v1beta/openai"
+      model="gemini-2.5-flash-lite"
+      prompt_and_verify_key "Gemini" \
+        "https://generativelanguage.googleapis.com/v1beta/openai/models" \
+        "https://aistudio.google.com/apikey"
+      ;;
+
+    5)
       llm_name="local_gemma"
       base_url="http://localhost:11434/v1"
       model="gemma3:4b"
@@ -260,7 +270,7 @@ if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ]; then
       fi
       ;;
 
-    5)
+    6)
       llm_name="custom"
       echo
       printf "Base URL (e.g. http://localhost:8080/v1): "
@@ -272,7 +282,7 @@ if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ]; then
       echo
       ;;
 
-    6)
+    7)
       llm_name="groq_llama"
       base_url="https://api.groq.com/openai/v1"
       model="llama-3.3-70b-versatile"

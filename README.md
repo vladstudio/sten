@@ -13,6 +13,10 @@
   Works in every app · 25 languages · Free forever
 </p>
 
+<p align="center">
+  <video src="web/sten.mp4" autoplay muted loop playsinline width="640"></video>
+</p>
+
 ---
 
 Sten lives in your menu bar. Press a hotkey, speak, and your words are typed into whatever app is focused — no cloud, no subscriptions, no leaving the keyboard.
@@ -23,34 +27,31 @@ Sten lives in your menu bar. Press a hotkey, speak, and your words are typed int
 
 Installs both Sten and [Tetra](https://github.com/vladstudio/tetra) (the transforms engine), seeds starter commands, and walks you through configuring an LLM provider. You'll pick a provider (Groq is free and recommended), paste an API key, and the script verifies everything works end-to-end.
 
+1. Open **Terminal** (press ⌘Space, type "Terminal", press Enter)
+2. Copy and paste this command, then press Enter:
+
 ```sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/vladstudio/sten/main/install-with-tetra.sh)"
 ```
+
+3. The apps will install to /Applications and open automatically
+4. On first launch, Sten will ask for **Accessibility** and **Microphone** permissions in System Settings
 
 ### Just dictation
 
 Install Sten alone, no AI transforms:
 
+1. Open **Terminal** (press ⌘Space, type "Terminal", press Enter)
+2. Copy and paste this command, then press Enter:
+
 ```sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/vladstudio/sten/main/install.sh)"
 ```
 
+3. The app will install to /Applications and open automatically
+4. On first launch, Sten will ask for **Accessibility** and **Microphone** permissions in System Settings
+
 Requires macOS 14+ on Apple Silicon.
-
-<p align="center">
-  <video src="web/sten.mp4" autoplay muted loop playsinline width="640"></video>
-</p>
-
-<details>
-<summary>What does the install script do?</summary>
-
-- Verifies macOS 14+ on Apple Silicon
-- Downloads the latest release from GitHub
-- Installs to /Applications (replaces existing version)
-- Removes the quarantine flag so the unsigned app can run
-- Opens the app
-
-</details>
 
 ## Usage
 
