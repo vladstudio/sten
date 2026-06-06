@@ -25,8 +25,6 @@ Paste into Terminal:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/vladstudio/sten/main/install.sh)"
 ```
 
-Or [download Sten.zip](https://github.com/vladstudio/sten/releases/latest/download/Sten.zip) and move it to Applications.
-
 Requires macOS 14+ on Apple Silicon.
 
 <p align="center">
