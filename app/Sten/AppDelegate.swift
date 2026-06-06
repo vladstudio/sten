@@ -25,7 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private var lastTranscription: String?
     private var capturedContext: String?
     private var transcriptionGeneration = 0
-    private var mediaResumeWorkItem: DispatchWorkItem?
+    private var mediaResumeGeneration = 0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu = MenuBarController()
@@ -169,8 +169,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
 
     // Start recording immediately and load model in parallel if needed
     private func startListening() {
-        mediaResumeWorkItem?.cancel()
-        mediaResumeWorkItem = nil
+        // Invalidate any pending resume from a previous listen.
+        mediaResumeGeneration &+= 1
         capturedContext = Settings.shared.includeContext ? ContextCapture.capture() : nil
         NSLog("[STEN] startListening called, state=\(menu.state), engineReady=\(engine.isReady)")
         idleTimer?.invalidate()
@@ -339,11 +339,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     }
 
     // Resume playback 2 seconds after listening ends. MediaPlayback resumes only what it paused.
+    // The generation counter invalidates any pending resume when listening restarts, so playback
+    // doesn't resume mid-speech on a quick re-listen.
     private func resumeMedia() {
-        mediaResumeWorkItem?.cancel()
-        let item = DispatchWorkItem { MediaPlayback.resume() }
-        mediaResumeWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: item)
+        mediaResumeGeneration &+= 1
+        let gen = mediaResumeGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self, gen == self.mediaResumeGeneration else { return }
+            MediaPlayback.resume()
+        }
     }
 
     func releaseHeldMicIfNeeded() {

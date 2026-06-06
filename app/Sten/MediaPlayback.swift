@@ -2,14 +2,13 @@ import Foundation
 
 // Pause/resume system media playback via the `media-control` CLI (Homebrew: ungive/media-control).
 //
-// Since macOS 15.4 the `mediaremoted` daemon requires a private entitlement, so third-party apps
-// can no longer load MediaRemote directly to read now-playing state or send play/pause. The CLI
-// runs those calls through an entitled system binary, so it reports *true* playing state and
-// exposes separate `play`/`pause` commands (not just a toggle) — which lets us pause only when
+// The `mediaremoted` daemon that exposes now-playing state requires a private entitlement, so
+// third-party apps can't talk to MediaRemote directly. The CLI ships with that entitlement and
+// reports true playing state plus separate `play`/`pause` commands — letting us pause only when
 // something is actually playing and resume only what we paused.
 //
-// All work is serialized on one queue and runs off the main thread: recording starts with no
-// added latency, and a pending `pause` always completes before a `resume` runs.
+// All work is serialized on one queue off the main thread: recording starts with no added
+// latency, and a pending `pause` always completes before a `resume` runs.
 enum MediaPlayback {
     private static let queue = DispatchQueue(label: "sten.mediaplayback")
     private static var pausedByUs = false  // touched only on `queue`

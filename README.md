@@ -1,6 +1,6 @@
 # Sten
 
-<img src="icons/Sten.png" width="128" alt="Sten icon">
+<img src="sten-1024.png" width="128" alt="Sten icon">
 
 A lightweight macOS menu bar app for voice-to-text transcription. Press a hotkey, speak, press a hotkey again, and your words are typed into the active application.
 
