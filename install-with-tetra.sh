@@ -6,7 +6,7 @@ set -eu
 # - Installs Sten (voice-to-text) and Tetra (text transforms) to /Applications
 #   by fetching and reusing sten/install.sh (single source of truth for the
 #   per-app install logic).
-# - Seeds ~/.config/tetra/commands/ with AI Fix + a couple of safe demos.
+# - Seeds ~/.config/tetra/commands/ with Fix Speech + a couple of safe demos.
 # - Walks the user through configuring an LLM provider (Groq/OpenAI/OpenRouter/Ollama/Custom).
 # - Verifies Tetra's HTTP server is reachable before finishing.
 #
@@ -29,7 +29,7 @@ Sten + Tetra combined installer.
 Installs:
   /Applications/Sten.app
   /Applications/Tetra.app
-  ~/.config/tetra/commands/{Uppercase.sh, Trim.sh, AI Fix.prompt.md}
+  ~/.config/tetra/commands/{Uppercase.sh, Trim.sh, Fix Speech.prompt.md}
   ~/.config/tetra/config.json       (chmod 600)
 
 Network endpoints contacted:
@@ -141,7 +141,7 @@ EOF
   echo "  wrote Trim.sh"
 fi
 
-# AI Fix.prompt.md is written after Phase 4, once we know the llm name.
+# Fix Speech.prompt.md is written after Phase 4, once we know the llm name.
 
 # ─── Phase 4: interactive LLM configuration ──────────────────────────────────
 
@@ -204,7 +204,7 @@ prompt_and_verify_key() {
 
 if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ]; then
   echo
-  bold "Which AI provider would you like for the \"AI Fix\" transform?"
+  bold "Which AI provider would you like for the \"Fix Speech\" transform?"
   echo "  1) Groq       — llama-3.3-70b-versatile     (free, fast, recommended)"
   echo "  2) OpenAI     — gpt-4o-mini                  (best quality, paid)"
   echo "  3) OpenRouter — llama-3.3-70b-instruct       (many models, paid)"
@@ -319,7 +319,7 @@ else
 fi
 
 # If we kept the existing config, try to detect its first LLM name so the
-# AI Fix.prompt.md frontmatter points at something that exists.
+# Fix Speech.prompt.md frontmatter points at something that exists.
 if [ -z "$llm_name" ] && [ -f "$CONFIG_FILE" ]; then
   detected=$(python3 -c '
 import json, sys
@@ -337,15 +337,15 @@ except Exception:
 fi
 if [ -z "$llm_name" ]; then
   llm_name="groq_llama"
-  dim "  Couldn't detect LLM; AI Fix.prompt.md will default to '$llm_name'"
+  dim "  Couldn't detect LLM; Fix Speech.prompt.md will default to '$llm_name'"
   dim "  Edit the frontmatter if your config uses a different name."
 fi
 
-if [ -f "$COMMANDS_DIR/AI Fix.prompt.md" ]; then
-  dim "  exists, skipping: AI Fix.prompt.md"
+if [ -f "$COMMANDS_DIR/Fix Speech.prompt.md" ]; then
+  dim "  exists, skipping: Fix Speech.prompt.md"
 else
-  arrow "Writing AI Fix.prompt.md (llm: $llm_name)"
-  cat > "$COMMANDS_DIR/AI Fix.prompt.md" <<EOF
+  arrow "Writing Fix Speech.prompt.md (llm: $llm_name)"
+  cat > "$COMMANDS_DIR/Fix Speech.prompt.md" <<EOF
 ---
 llm: $llm_name
 temperature: 0.3
@@ -365,7 +365,7 @@ Text:
 
 OUTPUT ONLY THE CORRECTED TEXT.
 EOF
-  green "AI Fix.prompt.md written"
+  green "Fix Speech.prompt.md written"
 fi
 
 # ─── Phase 5: launch & verify ────────────────────────────────────────────────
@@ -398,7 +398,7 @@ open -a Sten
 echo
 bold "All done!"
 echo
-echo "  Press your Sten hotkey to speak. AI Fix will run automatically."
+echo "  Press your Sten hotkey to speak. Fix Speech will run automatically."
 echo
 echo "  • Sten menu → Commands… to toggle individual transforms"
 echo "  • Edit $COMMANDS_DIR/ to add your own"
