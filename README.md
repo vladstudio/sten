@@ -21,6 +21,8 @@
 
 Sten lives in your menu bar. Press a hotkey, speak, and your words are typed into whatever app is focused — no cloud, no subscriptions, no leaving the keyboard.
 
+Requires macOS 14 (Sonoma) or later on Apple Silicon.
+
 ## Install
 
 ### With AI transforms (recommended)
@@ -35,7 +37,7 @@ Installs both Sten and [Tetra](https://github.com/vladstudio/tetra) (the transfo
 ```
 
 3. The apps will install to /Applications and open automatically
-4. On first launch, Sten will ask for **Accessibility** and **Microphone** permissions in System Settings
+4. On first launch, Sten will ask for **Accessibility** and **Microphone** access in System Settings — these are required to capture keystrokes and audio
 
 ### Just dictation
 
@@ -49,9 +51,7 @@ Install Sten alone, no AI transforms:
 ```
 
 3. The app will install to /Applications and open automatically
-4. On first launch, Sten will ask for **Accessibility** and **Microphone** permissions in System Settings
-
-Requires macOS 14+ on Apple Silicon.
+4. On first launch, Sten will ask for **Accessibility** and **Microphone** access in System Settings — these are required to capture keystrokes and audio
 
 ## Usage
 

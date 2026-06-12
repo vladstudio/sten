@@ -1,8 +1,5 @@
 #!/bin/bash
-set -e
-cd "$(dirname "$0")"
+set -e; cd "$(dirname "$0")"
+source ./app.sh
 source ../app-scripts/build-kit.sh
-build_app "Sten" \
-  --info app/Sten/Info.plist \
-  --resources "icons/*.png" \
-  --entitlements app/Sten/Sten.entitlements
+build_app
