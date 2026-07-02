@@ -175,7 +175,7 @@ if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ]; then
   echo "  1) Groq       — llama-3.3-70b-versatile     (free, fast, recommended)"
   echo "  2) OpenAI     — gpt-4o-mini                  (best quality, paid)"
   echo "  3) OpenRouter — llama-3.3-70b-instruct       (many models, paid)"
-  echo "  4) Gemini     — gemini-2.5-flash-lite        (Google, free tier)"
+  echo "  4) Gemini     — gemini-3.1-flash-lite        (Google, free tier)"
   echo "  5) Ollama     — gemma3:4b                    (local, no account needed)"
   echo "  6) Custom     —                              (any OpenAI-compatible endpoint)"
   echo "  7) Skip       —                              (configure later)"
@@ -214,7 +214,7 @@ if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ]; then
     4)
       llm_name="gemini"
       base_url="https://generativelanguage.googleapis.com/v1beta/openai"
-      model="gemini-2.5-flash-lite"
+      model="gemini-3.1-flash-lite"
       prompt_and_verify_key "Gemini" \
         "https://generativelanguage.googleapis.com/v1beta/openai/models" \
         "https://aistudio.google.com/apikey"
