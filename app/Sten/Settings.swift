@@ -58,15 +58,10 @@ final class Settings {
         set { write("include_context", newValue) }
     }
 
-    var transformText: Bool {
-        get { read("transform_text") as? Bool ?? true }
-        set { write("transform_text", newValue) }
-    }
-
-    // Set of enabled Tetra command names
-    var enabledTransforms: Set<String> {
-        get { Set(read("enabled_transforms") as? [String] ?? []) }
-        set { write("enabled_transforms", Array(newValue)) }
+    // Run the "Fix Speech" Tetra command on each transcription.
+    var fixWithTetra: Bool {
+        get { read("fix_with_tetra") as? Bool ?? true }
+        set { write("fix_with_tetra", newValue) }
     }
 
     var tetraPort: Int {

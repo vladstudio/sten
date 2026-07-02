@@ -6,7 +6,6 @@ set -eu
 # - Installs Sten (voice-to-text) and Tetra (text transforms) to /Applications
 #   by fetching and reusing sten/install.sh (single source of truth for the
 #   per-app install logic).
-# - Seeds ~/.config/tetra/commands/ with Fix Speech + a couple of safe demos.
 # - Walks the user through configuring an LLM provider (Groq/OpenAI/OpenRouter/Ollama/Custom).
 # - Verifies Tetra's HTTP server is reachable before finishing.
 #
@@ -29,7 +28,6 @@ Sten + Tetra combined installer.
 Installs:
   /Applications/Sten.app
   /Applications/Tetra.app
-  ~/.config/tetra/commands/{Uppercase.sh, Trim.sh, Fix Speech.prompt.md}
   ~/.config/tetra/config.json       (chmod 600)
 
 Network endpoints contacted:
@@ -73,7 +71,7 @@ echo
 echo "This will install:"
 echo "  • Sten  — voice-to-text (on-device)"
 echo "  • Tetra — text transforms (AI grammar fix, etc.)"
-echo "  • Starter commands and a working LLM config"
+echo "  • A working LLM config for Fix Speech"
 echo
 echo "Press Enter to continue, or Ctrl+C to cancel."
 read -r
@@ -112,38 +110,7 @@ install_app() {
 install_app Tetra "$TETRA_REPO"
 install_app Sten  "$STEN_REPO"
 
-# ─── Phase 3: seed commands folder ───────────────────────────────────────────
-
-mkdir -p "$COMMANDS_DIR"
-
-echo
-arrow "Seeding $COMMANDS_DIR"
-
-if [ -f "$COMMANDS_DIR/Uppercase.sh" ]; then
-  dim "  exists, skipping: Uppercase.sh"
-else
-  cat > "$COMMANDS_DIR/Uppercase.sh" <<'EOF'
-#!/bin/bash
-tr '[:lower:]' '[:upper:]'
-EOF
-  chmod 755 "$COMMANDS_DIR/Uppercase.sh"
-  echo "  wrote Uppercase.sh"
-fi
-
-if [ -f "$COMMANDS_DIR/Trim.sh" ]; then
-  dim "  exists, skipping: Trim.sh"
-else
-  cat > "$COMMANDS_DIR/Trim.sh" <<'EOF'
-#!/bin/bash
-sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
-EOF
-  chmod 755 "$COMMANDS_DIR/Trim.sh"
-  echo "  wrote Trim.sh"
-fi
-
-# Fix Speech.prompt.md is written after Phase 4, once we know the llm name.
-
-# ─── Phase 4: interactive LLM configuration ──────────────────────────────────
+# ─── Phase 3: interactive LLM configuration ──────────────────────────────────
 
 mkdir -p "$CONFIG_DIR"
 
@@ -318,57 +285,7 @@ else
   arrow "Keeping existing config"
 fi
 
-# If we kept the existing config, try to detect its first LLM name so the
-# Fix Speech.prompt.md frontmatter points at something that exists.
-if [ -z "$llm_name" ] && [ -f "$CONFIG_FILE" ]; then
-  detected=$(python3 -c '
-import json, sys
-try:
-    d = json.load(sys.stdin)
-    names = list(d.get("llms", {}).keys())
-    if names:
-        print(names[0], end="")
-except Exception:
-    pass' < "$CONFIG_FILE" 2>/dev/null || true)
-  if [ -n "$detected" ]; then
-    llm_name="$detected"
-    dim "  Detected LLM '$llm_name' in existing config"
-  fi
-fi
-if [ -z "$llm_name" ]; then
-  llm_name="groq_llama"
-  dim "  Couldn't detect LLM; Fix Speech.prompt.md will default to '$llm_name'"
-  dim "  Edit the frontmatter if your config uses a different name."
-fi
-
-if [ -f "$COMMANDS_DIR/Fix Speech.prompt.md" ]; then
-  dim "  exists, skipping: Fix Speech.prompt.md"
-else
-  arrow "Writing Fix Speech.prompt.md (llm: $llm_name)"
-  cat > "$COMMANDS_DIR/Fix Speech.prompt.md" <<EOF
----
-llm: $llm_name
-temperature: 0.3
----
-
-Fix grammar, spelling, and misrecognized words in the provided speech-to-text transcription.
-Keep the original language.
-Remove filler words and mumbling.
-
-{{#context}}
-Context:
-{{context}}
-{{/context}}
-
-Text:
-{{text}}
-
-OUTPUT ONLY THE CORRECTED TEXT.
-EOF
-  green "Fix Speech.prompt.md written"
-fi
-
-# ─── Phase 5: launch & verify ────────────────────────────────────────────────
+# ─── Phase 4: launch & verify ────────────────────────────────────────────────
 
 echo
 arrow "Launching Tetra"
@@ -400,7 +317,7 @@ bold "All done!"
 echo
 echo "  Press your Sten hotkey to speak. Fix Speech will run automatically."
 echo
-echo "  • Sten menu → Commands… to toggle individual transforms"
-echo "  • Edit $COMMANDS_DIR/ to add your own"
+echo "  • Sten menu → Fix with Tetra (enabled by default)"
+echo "  • Sten creates Fix Speech.prompt.md in $COMMANDS_DIR on first use — edit it to tweak the prompt"
 echo "  • Edit $CONFIG_FILE to change LLM providers"
 echo

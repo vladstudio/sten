@@ -67,9 +67,9 @@ Install Sten alone, no AI transforms:
   <img src="web/tetra-ai-fix.webp" width="640" alt="Example transform script that corrects grammar and custom words using an LLM">
 </p>
 
-Run every transcription through custom commands — shell scripts, or LLM prompts that fix grammar, enforce terminology, and more.
+Run every transcription through an AI "Fix Speech" command that fixes grammar, spelling, and misrecognized words.
 
-Powered by [Tetra](https://github.com/vladstudio/tetra): drop commands into `~/.config/tetra/commands/` and they show up in Sten's menu. Enable **Include Context** to pass nearby text from the active app as `args.context`, useful for context-aware corrections in `.prompt.md` commands.
+Powered by [Tetra](https://github.com/vladstudio/tetra). Enable **Fix with Tetra** in Sten's menu to turn it on. The first time it runs, Sten creates `~/.config/tetra/commands/Fix Speech.prompt.md` automatically if it's missing. Enable **Include Context** to pass nearby text from the active app to the model, for context-aware corrections.
 
 ## FAQ
 

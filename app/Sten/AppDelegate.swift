@@ -171,7 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private func startListening() {
         // Invalidate any pending resume from a previous listen.
         mediaResumeGeneration &+= 1
-        capturedContext = Settings.shared.includeContext ? ContextCapture.capture() : nil
+        capturedContext = (Settings.shared.fixWithTetra && Settings.shared.includeContext) ? ContextCapture.capture() : nil
         NSLog("[STEN] startListening called, state=\(menu.state), engineReady=\(engine.isReady)")
         idleTimer?.invalidate()
         if Settings.shared.pauseMediaWhileListening { MediaPlayback.pauseIfPlaying() }
@@ -354,17 +354,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         recorder.releaseKeepAliveIfNeeded()
     }
 
-    // Run enabled Tetra commands sequentially, piping text through each
+    // Run the "Fix Speech" Tetra command on each transcription (no-op if disabled,
+    // Tetra isn't running, or the call fails — original text passes through unchanged).
     private func applyTransforms(_ text: String, context: String?) async -> String {
-        guard Settings.shared.transformText else { return text }
-        let enabled = Settings.shared.enabledTransforms
-        guard !enabled.isEmpty else { return text }
+        guard Settings.shared.fixWithTetra else { return text }
+        ensureFixSpeechCommand()
         let args = context.map { ["context": $0] }
-        var result = text
-        for command in enabled.sorted() {
-            if let output = await tetraTransform(command: command, text: result, args: args) { result = output }
+        return await tetraTransform(command: Self.fixSpeechCommand, text: text, args: args) ?? text
+    }
+
+    private static let fixSpeechCommand = "Fix Speech"
+    private static let fixSpeechFileName = "Fix Speech.prompt.md"
+
+    // Ensure ~/.config/tetra/commands/Fix Speech.prompt.md exists so Tetra can run the command.
+    private func ensureFixSpeechCommand() {
+        let commandsDir = ConfigDir.url(for: "tetra").appendingPathComponent("commands")
+        let fileURL = commandsDir.appendingPathComponent(Self.fixSpeechFileName)
+        guard !FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        let prompt = """
+---
+llm: \(detectTetraLLMName())
+temperature: 0.3
+---
+
+Fix grammar, spelling, and misrecognized words in the provided speech-to-text TranscribedText. Keep the original language. Fix mid-sentence corrections. Remove filler words and mumbling. Convert spoken numbers and punctuation to actual written numbers and symbols. The meaning of the text itself does not matter to you.
+
+{{#context}}
+Nearby text:
+<Context>{{context}}</Context>
+{{/context}}
+
+<TranscribedText>{{text}}</TranscribedText>
+
+OUTPUT ONLY THE CORRECTED TEXT.
+"""
+        do {
+            try FileManager.default.createDirectory(at: commandsDir, withIntermediateDirectories: true)
+            try prompt.write(to: fileURL, atomically: true, encoding: .utf8)
+        } catch {
+            NSLog("[STEN] could not seed %@: %@", Self.fixSpeechFileName, error.localizedDescription)
         }
-        return result
+    }
+
+    // Pick the first LLM name from Tetra's config.json, falling back to "groq_llama".
+    private func detectTetraLLMName() -> String {
+        let configURL = ConfigDir.url(for: "tetra").appendingPathComponent("config.json")
+        guard let data = try? Data(contentsOf: configURL),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let llms = json["llms"] as? [String: Any],
+              let first = llms.keys.first else { return "groq_llama" }
+        return first
     }
 
     private func tetraTransform(command: String, text: String, args: [String: String]?) async -> String? {

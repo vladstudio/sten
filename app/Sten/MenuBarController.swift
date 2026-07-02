@@ -4,7 +4,7 @@ import MacAppKit
 
 enum AppState { case idle, listening, transcribing, loading }
 
-final class MenuBarController: NSObject, NSMenuDelegate {
+final class MenuBarController: NSObject {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     var statusButton: NSStatusBarButton? { statusItem.button }
     private let settings = Settings.shared
@@ -24,43 +24,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private var confirmPanel: ConfirmPanel?
     private var permissionsMode = false
     private var iconCache: [String: NSImage] = [:]
-    private var commandsSubmenu: NSMenu?
 
     override init() {
         super.init()
         updateIcon()
         updateMenu()
-    }
-
-    // Populate commands submenu from Tetra when it opens
-    func menuWillOpen(_ menu: NSMenu) {
-        guard menu === commandsSubmenu else { return }
-        menu.removeAllItems()
-        let commands = fetchTetraCommands()
-        for name in commands {
-            let item = NSMenuItem(title: name, action: #selector(toggleTransform(_:)), keyEquivalent: "")
-            item.target = self
-            item.state = settings.enabledTransforms.contains(name) ? .on : .off
-            menu.addItem(item)
-        }
-        if !commands.isEmpty { menu.addItem(.separator()) }
-        let openFolder = NSMenuItem(title: "Open Tetra commands folder", action: #selector(openTransformsFolder), keyEquivalent: "")
-        openFolder.target = self
-        menu.addItem(openFolder)
-    }
-
-    private func fetchTetraCommands() -> [String] {
-        let url = URL(string: "http://localhost:\(settings.tetraPort)/commands")!
-        let request = URLRequest(url: url, timeoutInterval: 0.3)
-        var commands: [String] = []
-        let sem = DispatchSemaphore(value: 0)
-        URLSession.shared.dataTask(with: request) { data, _, _ in
-            defer { sem.signal() }
-            guard let data, let arr = try? JSONSerialization.jsonObject(with: data) as? [String] else { return }
-            commands = arr
-        }.resume()
-        sem.wait()
-        return commands
     }
 
     // Show permissions-required menu when mic or accessibility missing
@@ -224,20 +192,20 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
         menu.addItem(pauseMediaItem)
         menu.addItem(.separator())
-        let transformItem = NSMenuItem(title: "Transform Text", action: #selector(toggleTransformText), keyEquivalent: "")
-        transformItem.target = self
-        transformItem.state = settings.transformText ? .on : .off
-        menu.addItem(transformItem)
-        let contextItem = NSMenuItem(title: "Include Context", action: #selector(toggleContext), keyEquivalent: "")
-        contextItem.target = self
-        contextItem.state = settings.includeContext ? .on : .off
-        menu.addItem(contextItem)
-        let commandsItem = NSMenuItem(title: "Commands...", action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
-        submenu.delegate = self
-        commandsSubmenu = submenu
-        commandsItem.submenu = submenu
-        menu.addItem(commandsItem)
+        if tetraIsInstalled() {
+            let fixItem = NSMenuItem(title: "Fix with Tetra", action: #selector(toggleFixWithTetra), keyEquivalent: "")
+            fixItem.target = self
+            fixItem.state = settings.fixWithTetra ? .on : .off
+            menu.addItem(fixItem)
+            let contextItem = NSMenuItem(title: "Include Context", action: #selector(toggleContext), keyEquivalent: "")
+            contextItem.target = self
+            contextItem.state = settings.includeContext ? .on : .off
+            menu.addItem(contextItem)
+        } else {
+            let installItem = NSMenuItem(title: "Get Tetra for AI fixes...", action: #selector(openTetraPage), keyEquivalent: "")
+            installItem.target = self
+            menu.addItem(installItem)
+        }
         menu.addItem(.separator())
         let about = NSMenuItem(title: "About Sten", action: #selector(openAbout), keyEquivalent: "")
         about.target = self
@@ -251,7 +219,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(del)
         }
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-        menu.delegate = self
         statusItem.menu = menu
     }
 
@@ -271,19 +238,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func openAbout() { if let url = URL(string: "https://apps.vlad.studio/sten") { NSWorkspace.shared.open(url) } }
     @objc private func checkUpdate() { StenUpdater.check(manual: true) }
 
-    @objc private func toggleTransformText() { settings.transformText.toggle(); updateMenu() }
+    @objc private func toggleFixWithTetra() { settings.fixWithTetra.toggle(); updateMenu() }
 
-    @objc private func toggleTransform(_ sender: NSMenuItem) {
-        var enabled = settings.enabledTransforms
-        if enabled.contains(sender.title) { enabled.remove(sender.title); sender.state = .off }
-        else { enabled.insert(sender.title); sender.state = .on }
-        settings.enabledTransforms = enabled
+    @objc private func openTetraPage() {
+        if let url = URL(string: "https://apps.vlad.studio/tetra") { NSWorkspace.shared.open(url) }
     }
 
-    private static let tetraCommandsDir = ConfigDir.url(for: "tetra").appendingPathComponent("commands")
-
-    @objc private func openTransformsFolder() {
-        NSWorkspace.shared.open(Self.tetraCommandsDir)
+    private func tetraIsInstalled() -> Bool {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: "studio.vlad.tetra") != nil
     }
 
     private func modelDirectory() -> URL? { TranscriptionEngine.modelDirectory }
