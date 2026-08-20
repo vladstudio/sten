@@ -12,11 +12,11 @@ extension NSPanel {
 }
 
 // Convert hardware keycode to character using current keyboard layout
-func translateKeyCode(_ code: UInt16) -> String? {
+func translateKeyCode(_ code: UInt16, modifiers: UInt32 = 0) -> String? {
     guard let sourceRef = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
           let layoutData = TISGetInputSourceProperty(sourceRef, kTISPropertyUnicodeKeyLayoutData) else { return nil }
     let layout = unsafeBitCast(layoutData, to: CFData.self) as Data
     var deadKeyState: UInt32 = 0, chars = [UniChar](repeating: 0, count: 4), len = 0
-    _ = layout.withUnsafeBytes { UCKeyTranslate($0.bindMemory(to: UCKeyboardLayout.self).baseAddress!, code, UInt16(kUCKeyActionDown), 0, UInt32(LMGetKbdType()), UInt32(kUCKeyTranslateNoDeadKeysBit), &deadKeyState, 4, &len, &chars) }
+    _ = layout.withUnsafeBytes { UCKeyTranslate($0.bindMemory(to: UCKeyboardLayout.self).baseAddress!, code, UInt16(kUCKeyActionDown), modifiers, UInt32(LMGetKbdType()), UInt32(kUCKeyTranslateNoDeadKeysBit), &deadKeyState, 4, &len, &chars) }
     return len > 0 ? String(utf16CodeUnits: chars, count: len) : nil
 }

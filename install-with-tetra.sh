@@ -281,6 +281,22 @@ if [ ! -f "$CONFIG_FILE" ] || [ "$overwrite" = "y" ]; then
 EOF
   chmod 600 "$CONFIG_FILE"
   green "Config written"
+
+  # Seed Custom.prompt.md so the picker's empty-results fallback works out of
+  # the box. Uses the LLM just configured. Skipped if the user already has one
+  # (e.g. they re-ran the installer over an existing setup).
+  mkdir -p "$COMMANDS_DIR"
+  if [ ! -f "$COMMANDS_DIR/Custom.prompt.md" ]; then
+    cat > "$COMMANDS_DIR/Custom.prompt.md" <<EOF
+---
+llm: $llm_name
+temperature: 0.3
+---
+
+{{text}}
+EOF
+    green "Wrote $COMMANDS_DIR/Custom.prompt.md"
+  fi
 else
   arrow "Keeping existing config"
 fi

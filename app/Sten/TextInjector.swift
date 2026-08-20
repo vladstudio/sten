@@ -1,20 +1,41 @@
-// Types text into the active app by simulating keyboard events, with clipboard-paste fallback for long text
+// Types text into the active app by simulating keyboard events, with clipboard-paste fallback
 import AppKit
 import Carbon
 
 enum TextInjector {
     static func inject(_ text: String) -> Bool {
-        text.count <= 50 ? injectKeys(text) : injectViaPaste(text)
+        // Resolve each char to a real keycode. Receivers like Screen Sharing forward keycodes,
+        // not the unicode string payload, so a dummy virtualKey comes out wrong ("aaaa").
+        // Real keycodes fix that when local/remote layouts match; chars we can't resolve
+        // (accents, emoji, CJK) fall back to layout-agnostic paste.
+        let map = charCodeMap()
+        if text.count <= 50 && text.allSatisfy({ map[$0] != nil }) {
+            return injectKeys(text, map: map)
+        }
+        return injectViaPaste(text)
     }
 
-    private static func injectKeys(_ text: String) -> Bool {
+    // char -> (keycode, needsShift) for the current keyboard layout, built per call
+    private static func charCodeMap() -> [Character: (code: UInt16, shift: Bool)] {
+        var m: [Character: (UInt16, Bool)] = [:]
+        for code in UInt16(0)...127 {
+            if let s = translateKeyCode(code), let c = s.first { m[c] = (code, false) }
+            if let s = translateKeyCode(code, modifiers: 1 << 1), let c = s.first, m[c] == nil { m[c] = (code, true) }
+        }
+        return m
+    }
+
+    private static func injectKeys(_ text: String, map: [Character: (code: UInt16, shift: Bool)]) -> Bool {
         guard let source = CGEventSource(stateID: .hidSystemState) else { return false }
-        for char in text.unicodeScalars {
-            var utf16 = [UniChar](String(char).utf16)
-            guard let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
-                  let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) else { return false }
+        for ch in text {
+            guard let (code, shift) = map[ch] else { return false }
+            var utf16 = [UniChar](String(ch).utf16)
+            guard let down = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: true),
+                  let up = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: false) else { return false }
             down.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
             up.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
+            if shift { down.flags.insert(.maskShift); up.flags.insert(.maskShift) }
+            else { down.flags.subtract(.maskShift); up.flags.subtract(.maskShift) }
             down.post(tap: .cgAnnotatedSessionEventTap)
             up.post(tap: .cgAnnotatedSessionEventTap)
         }
