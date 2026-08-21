@@ -323,6 +323,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     }
 
     // Inject text into active app or show notification
+    // Inject text into the active app or show a notification fallback.
+    // Reached via MainActor.run { } and a menu @objc action, so always on main;
+    // TextInjector is @MainActor-isolated, hence assumeIsolated.
     private func outputText(_ text: String) {
         lastTranscription = text
         menu.hasLastTranscription = true
@@ -330,7 +333,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             showNotification("Transcription", text)
             return
         }
-        if !TextInjector.inject(text) { showNotification("Transcription", text) }
+        if !MainActor.assumeIsolated({ TextInjector.inject(text) }) { showNotification("Transcription", text) }
     }
 
     private func pasteAgain() {
