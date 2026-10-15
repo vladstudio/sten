@@ -171,7 +171,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private func startListening() {
         // Invalidate any pending resume from a previous listen.
         mediaResumeGeneration &+= 1
-        capturedContext = (Settings.shared.fixWithTetra && Settings.shared.includeContext) ? ContextCapture.capture() : nil
+        capturedContext = nil
+        if Settings.shared.fixWithTetra && Settings.shared.includeContext {
+            Task { @MainActor [weak self] in self?.capturedContext = await ContextCapture.captureContext() }
+        }
         NSLog("[STEN] startListening called, state=\(menu.state), engineReady=\(engine.isReady)")
         idleTimer?.invalidate()
         if Settings.shared.pauseMediaWhileListening { MediaPlayback.pauseIfPlaying() }
@@ -322,8 +325,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         scheduleIdleUnload()
     }
 
-    // Inject text into active app or show notification
     // Inject text into the active app or show a notification fallback.
+    // 5ms between chars, so apps that do heavy work per keystroke keep up.
     // Reached via MainActor.run { } and a menu @objc action, so always on main;
     // TextInjector is @MainActor-isolated, hence assumeIsolated.
     private func outputText(_ text: String) {
@@ -333,7 +336,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             showNotification("Transcription", text)
             return
         }
-        if !MainActor.assumeIsolated({ TextInjector.inject(text) }) { showNotification("Transcription", text) }
+        if !MainActor.assumeIsolated({ TextInjector.inject(text, charDelay: .milliseconds(5)) }) { showNotification("Transcription", text) }
     }
 
     private func pasteAgain() {
